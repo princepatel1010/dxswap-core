@@ -10,45 +10,54 @@ import './libraries/SafeMath.sol';
 contract DXswapFeeReceiver {
     using SafeMath for uint;
 
+    uint256 ONE_HUNDRED_PERCENT = 10^10;
+
     address public owner;
     IDXswapFactory public factory;
-    address public WETH;
-    address public ethReceiver;
-    address public fallbackReceiver;
+    IWETH public WETH;
+    address public honeyToken;
+    address public hsfToken;
+    address public honeyReceiver;
+    address public hsfReceiver;
+    uint256 public splitHoneyProportion;
 
     constructor(
-        address _owner, address _factory, address _WETH, address _ethReceiver, address _fallbackReceiver
+        address _owner, address _factory, IWETH _WETH, address _honeyToken, address _hsfToken, address _honeyReceiver,
+        address _hsfReceiver, uint256 _splitHoneyProportion
     ) public {
         owner = _owner;
         factory = IDXswapFactory(_factory);
         WETH = _WETH;
-        ethReceiver = _ethReceiver;
-        fallbackReceiver = _fallbackReceiver;
+        honeyToken = _honeyToken;
+        hsfToken = _hsfToken;
+        honeyReceiver = _honeyReceiver;
+        hsfReceiver = _hsfReceiver;
+        splitHoneyProportion = _splitHoneyProportion;
     }
-    
+
     function() external payable {}
 
     function transferOwnership(address newOwner) external {
         require(msg.sender == owner, 'DXswapFeeReceiver: FORBIDDEN');
         owner = newOwner;
     }
-    
-    function changeReceivers(address _ethReceiver, address _fallbackReceiver) external {
+
+    function changeReceivers(address _ethReceiver, address _hsfReceiver) external {
         require(msg.sender == owner, 'DXswapFeeReceiver: FORBIDDEN');
-        ethReceiver = _ethReceiver;
-        fallbackReceiver = _fallbackReceiver;
+        honeyReceiver = _ethReceiver;
+        hsfReceiver = _hsfReceiver;
     }
-    
+
     // Returns sorted token addresses, used to handle return values from pairs sorted in this order
-    function sortTokens(address tokenA, address tokenB) internal pure returns (address token0, address token1) {
+    function _sortTokens(address tokenA, address tokenB) internal pure returns (address token0, address token1) {
         require(tokenA != tokenB, 'DXswapFeeReceiver: IDENTICAL_ADDRESSES');
         (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         require(token0 != address(0), 'DXswapFeeReceiver: ZERO_ADDRESS');
     }
-    
+
     // Helper function to know if an address is a contract, extcodesize returns the size of the code of a smart
     //  contract in a specific address
-    function isContract(address addr) internal returns (bool) {
+    function _isContract(address addr) internal returns (bool) {
         uint size;
         assembly { size := extcodesize(addr) }
         return size > 0;
@@ -56,60 +65,52 @@ contract DXswapFeeReceiver {
 
     // Calculates the CREATE2 address for a pair without making any external calls
     // Taken from DXswapLibrary, removed the factory parameter
-    function pairFor(address tokenA, address tokenB) internal view returns (address pair) {
-        (address token0, address token1) = sortTokens(tokenA, tokenB);
+    function _pairFor(address tokenA, address tokenB) internal view returns (address pair) {
+        (address token0, address token1) = _sortTokens(tokenA, tokenB);
         pair = address(uint(keccak256(abi.encodePacked(
-            hex'ff',
-            factory,
-            keccak256(abi.encodePacked(token0, token1)),
-            hex'd306a548755b9295ee49cc729e13ca4a45e00199bbd890fa146da43a50571776' // init code hash
-        ))));
+                hex'ff',
+                factory,
+                keccak256(abi.encodePacked(token0, token1)),
+                hex'f23fac090dc304615f73576672d67b74204fd7c289024743f16fc2ff983711ca' // init code hash 1hive's
+//                hex'd306a548755b9295ee49cc729e13ca4a45e00199bbd890fa146da43a50571776' // init code hash original
+            ))));
     }
-    
+
     // Done with code form DXswapRouter and DXswapLibrary, removed the deadline argument
-    function _swapTokensForETH(uint amountIn, address fromToken)
-        internal
+    function _swapTokens(uint amountIn, address fromToken, address toToken)
+    internal returns (uint256 amountOut)
     {
-        IDXswapPair pairToUse = IDXswapPair(pairFor(fromToken, WETH));
-        
+        IDXswapPair pairToUse = IDXswapPair(_pairFor(fromToken, toToken));
+
         (uint reserve0, uint reserve1,) = pairToUse.getReserves();
-        (uint reserveIn, uint reserveOut) = fromToken < WETH ? (reserve0, reserve1) : (reserve1, reserve0);
+        (uint reserveIn, uint reserveOut) = fromToken < toToken ? (reserve0, reserve1) : (reserve1, reserve0);
 
         require(reserveIn > 0 && reserveOut > 0, 'DXswapFeeReceiver: INSUFFICIENT_LIQUIDITY');
         uint amountInWithFee = amountIn.mul(uint(10000).sub(pairToUse.swapFee()));
         uint numerator = amountInWithFee.mul(reserveOut);
         uint denominator = reserveIn.mul(10000).add(amountInWithFee);
-        uint amountOut = numerator / denominator;
-        
+        amountOut = numerator / denominator;
+
         TransferHelper.safeTransfer(
             fromToken, address(pairToUse), amountIn
         );
-        
-        (uint amount0Out, uint amount1Out) = fromToken < WETH ? (uint(0), amountOut) : (amountOut, uint(0));
-        
+
+        (uint amount0Out, uint amount1Out) = fromToken < toToken ? (uint(0), amountOut) : (amountOut, uint(0));
+
         pairToUse.swap(
             amount0Out, amount1Out, address(this), new bytes(0)
         );
-        
-        IWETH(WETH).withdraw(amountOut);
-        TransferHelper.safeTransferETH(ethReceiver, amountOut);
+
+        //        IWETH(WETH).withdraw(amountOut);
+        //        TransferHelper.safeTransferETH(ethReceiver, amountOut);
     }
 
     // Transfer to the owner address the token converted into ETH if possible, if not just transfer the token.
-    function _takeETHorToken(address token, uint amount) internal {
-      if (token == WETH) {
-        // If it is WETH, transfer directly to ETH receiver
-        IWETH(WETH).withdraw(amount);
-        TransferHelper.safeTransferETH(ethReceiver, amount);
-      } else if (isContract(pairFor(token, WETH))) {
-        // If it is not WETH and there is a direct path to WETH, swap and transfer WETH to ETH receiver
-        _swapTokensForETH(amount, token);
-      } else {
-        // If it is not WETH and there is not a direct path to WETH, transfer tokens directly to fallback receiver
-        TransferHelper.safeTransfer(token, fallbackReceiver, amount);
-      }
+    function _swapForWeth(address token, uint amount) internal {
+        require(_isContract(_pairFor(token, address(WETH))), 'DXswapFeeReceiver: WETH_PAIR_NOT_CONTRACT');
+        _swapTokens(amount, token, address(WETH));
     }
-    
+
     // Take what was charged as protocol fee from the DXswap pair liquidity
     function takeProtocolFee(IDXswapPair[] calldata pairs) external {
         for (uint i = 0; i < pairs.length; i++) {
@@ -117,11 +118,20 @@ contract DXswapFeeReceiver {
             address token1 = pairs[i].token1();
             pairs[i].transfer(address(pairs[i]), pairs[i].balanceOf(address(this)));
             (uint amount0, uint amount1) = pairs[i].burn(address(this));
-            if (amount0 > 0)
-                _takeETHorToken(token0, amount0);
-            if (amount1 > 0)
-                _takeETHorToken(token1, amount1);
+            if (amount0 > 0 && token0 != address(WETH))
+                _swapForWeth(token0, amount0);
+            if (amount1 > 0 && token1 != address(WETH))
+                _swapForWeth(token1, amount1);
+
+            uint256 wethBalance = WETH.balanceOf(address(this));
+            uint256 wethToConvertToHoney = (wethBalance.mul(splitHoneyProportion)) / ONE_HUNDRED_PERCENT;
+            uint256 wethToConvertToHsf = wethBalance.sub(wethToConvertToHoney);
+
+            uint256 honeyEarned = _swapTokens(wethToConvertToHoney, address(WETH), honeyToken);
+            TransferHelper.safeTransfer(honeyToken, honeyReceiver, honeyEarned);
+
+            uint256 hsfEarned = _swapTokens(wethToConvertToHsf, address(WETH), hsfToken);
+            TransferHelper.safeTransfer(hsfToken, hsfReceiver, hsfEarned);
         }
     }
-
 }

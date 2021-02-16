@@ -3,7 +3,7 @@ import { Web3Provider } from 'ethers/providers'
 import { defaultAbiCoder } from 'ethers/utils'
 import { deployContract } from 'ethereum-waffle'
 
-import { expandTo18Decimals } from './utilities'
+import { expandTo18Decimals, expandToDecimals } from './utilities'
 
 import ERC20 from '../../build/ERC20.json'
 import WETH9 from '../../build/WETH9.json'
@@ -18,6 +18,8 @@ interface FactoryFixture {
   feeSetter: Contract
   feeReceiver: Contract
   WETH: Contract
+  honeyToken: Contract
+  hsfToken: Contract
 }
 
 const overrides = {
@@ -26,8 +28,11 @@ const overrides = {
 
 export async function factoryFixture(provider: Web3Provider, [dxdao, ethReceiver]: Wallet[]): Promise<FactoryFixture> {
   const WETH = await deployContract(dxdao, WETH9)
+  const honeyToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
+  const hsfToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
   const dxSwapDeployer = await deployContract(
-    dxdao, DXswapDeployer, [ ethReceiver.address, dxdao.address, WETH.address, [], [], [], ], overrides
+    dxdao, DXswapDeployer, [ dxdao.address, WETH.address, [], [], [], honeyToken.address, hsfToken.address,
+      ethReceiver.address, ethReceiver.address, expandToDecimals(5, 9)], overrides
   )
   await dxdao.sendTransaction({to: dxSwapDeployer.address, gasPrice: 0, value: 1})
   const deployTx = await dxSwapDeployer.deploy()
@@ -40,7 +45,7 @@ export async function factoryFixture(provider: Web3Provider, [dxdao, ethReceiver
   const feeSetter = new Contract(feeSetterAddress, JSON.stringify(DXswapFeeSetter.abi), provider).connect(dxdao)
   const feeReceiverAddress = await factory.feeTo()
   const feeReceiver = new Contract(feeReceiverAddress, JSON.stringify(DXswapFeeReceiver.abi), provider).connect(dxdao)
-  return { factory, feeSetter, feeReceiver, WETH }
+  return { factory, feeSetter, feeReceiver, WETH, honeyToken, hsfToken }
 }
 
 interface PairFixture extends FactoryFixture {
@@ -55,17 +60,23 @@ export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethRec
   const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const WETH = await deployContract(wallet, WETH9)
   await WETH.deposit({value: expandTo18Decimals(1000)})
+  const honeyToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
+  const hsfToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
   const token0 = tokenA.address < tokenB.address ? tokenA : tokenB
   const token1 = token0.address === tokenA.address ? tokenB : tokenA
-  
+
   const dxSwapDeployer = await deployContract(
     dxdao, DXswapDeployer, [
-      ethReceiver.address,
       dxdao.address,
       WETH.address,
       [token0.address, token1.address],
       [token1.address, WETH.address],
       [15, 15],
+      honeyToken.address,
+      hsfToken.address,
+      ethReceiver.address,
+      ethReceiver.address,
+      expandToDecimals(5, 9)
     ], overrides
   )
   await dxdao.sendTransaction({to: dxSwapDeployer.address, gasPrice: 0, value: 1})
@@ -74,7 +85,7 @@ export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethRec
   const factoryAddress = deployTxReceipt.logs !== undefined
     ? defaultAbiCoder.decode(['address'], deployTxReceipt.logs[0].data)[0]
     : null
-  
+
   const factory = new Contract(factoryAddress, JSON.stringify(DXswapFactory.abi), provider).connect(dxdao)
   const feeSetterAddress = await factory.feeToSetter()
   const feeSetter = new Contract(feeSetterAddress, JSON.stringify(DXswapFeeSetter.abi), provider).connect(dxdao)
@@ -89,5 +100,5 @@ export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethRec
      JSON.stringify(DXswapPair.abi), provider
    ).connect(dxdao)
 
-  return { factory, feeSetter, feeReceiver, WETH, token0, token1, pair, wethPair }
+  return { factory, feeSetter, feeReceiver, WETH, honeyToken, hsfToken, token0, token1, pair, wethPair }
 }

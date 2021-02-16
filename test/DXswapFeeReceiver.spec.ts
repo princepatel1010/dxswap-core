@@ -32,13 +32,13 @@ describe('DXswapFeeReceiver', () => {
   }
   const [dxdao, wallet, protocolFeeReceiver, other] = provider.getWallets()
   const loadFixture = createFixtureLoader(provider, [dxdao, wallet, protocolFeeReceiver])
-  
+
   async function getAmountOut(pair: Contract, tokenIn: string, amountIn: BigNumber) {
     const [ reserve0, reserve1 ] = await pair.getReserves()
     const token0 = await pair.token0()
     return getAmountOutSync(reserve0, reserve1, token0 === tokenIn, amountIn, await pair.swapFee())
   }
-  
+
   function getAmountOutSync(
     reserve0: BigNumber, reserve1: BigNumber, usingToken0: boolean, amountIn: BigNumber, swapFee: BigNumber
   ) {
@@ -48,7 +48,7 @@ describe('DXswapFeeReceiver', () => {
     return amountInWithFee.mul(tokenOutBalance)
       .div(tokenInBalance.mul(FEE_DENOMINATOR).add(amountInWithFee))
   }
-  
+
   // Calculate how much will be payed from liquidity as protocol fee in the next mint/burn
   async function calcProtocolFee(pair: Contract) {
     const [token0Reserve, token1Reserve, _] = await pair.getReserves()
@@ -69,13 +69,13 @@ describe('DXswapFeeReceiver', () => {
         rootK = bigNumberify(Math.sqrt((token0Reserve).mul(token1Reserve)).toString())
         rootKLast = bigNumberify(Math.sqrt(kLast).toString())
       }
-      
+
       return (totalSupply.mul(rootK.sub(rootKLast)))
         .div(rootK.mul(protocolFeeDenominator).add(rootKLast))
     } else {
       return bigNumberify(0)
     }
-  } 
+  }
 
   let factory: Contract
   let token0: Contract
@@ -96,11 +96,11 @@ describe('DXswapFeeReceiver', () => {
     feeSetter = fixture.feeSetter
     feeReceiver = fixture.feeReceiver
   })
-  
+
   // Where token0-token1 and token1-WETH pairs exist
   it(
     'should receive token0 to fallbackreceiver and ETH to ethReceiver when extracting fee from token0-token1',
-    async () => 
+    async () =>
   {
     const tokenAmount = expandTo18Decimals(100);
     const wethAmount = expandTo18Decimals(100);
@@ -109,35 +109,35 @@ describe('DXswapFeeReceiver', () => {
     await token0.transfer(pair.address, tokenAmount)
     await token1.transfer(pair.address, tokenAmount)
     await pair.mint(wallet.address, overrides)
-    
+
     await token1.transfer(wethPair.address, tokenAmount)
     await WETH.transfer(wethPair.address, wethAmount)
     await wethPair.mint(wallet.address, overrides)
-    
+
     let amountOut = await getAmountOut(pair, token0.address, amountIn);
-  
+
     await token0.transfer(pair.address, amountIn)
     await pair.swap(0, amountOut, wallet.address, '0x', overrides)
 
     amountOut = await getAmountOut(pair, token1.address, amountIn);
     await token1.transfer(pair.address, amountIn)
     await pair.swap(amountOut, 0, wallet.address, '0x', overrides)
-        
+
     const protocolFeeToReceive = await calcProtocolFee(pair);
-    
+
     await token0.transfer(pair.address, expandTo18Decimals(10))
     await token1.transfer(pair.address, expandTo18Decimals(10))
     await pair.mint(wallet.address, overrides)
-    
+
     const protocolFeeLPToknesReceived = await pair.balanceOf(feeReceiver.address);
     expect(protocolFeeLPToknesReceived.div(ROUND_EXCEPTION))
     .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
-    
+
     const token0FromProtocolFee = protocolFeeLPToknesReceived
-    .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply()); 
+    .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply());
     const token1FromProtocolFee = protocolFeeLPToknesReceived
     .mul(await token1.balanceOf(pair.address)).div(await pair.totalSupply());
-    
+
     const wethFromToken1FromProtocolFee = await getAmountOut(wethPair, token1.address, token1FromProtocolFee);
 
     const protocolFeeReceiverBalanceBeforeTake = await provider.getBalance(protocolFeeReceiver.address)
@@ -149,7 +149,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await pair.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await provider.getBalance(feeReceiver.address)).to.eq(0)
-    
+
     expect((await provider.getBalance(protocolFeeReceiver.address)))
     .to.be.eq(protocolFeeReceiverBalanceBeforeTake.add(wethFromToken1FromProtocolFee))
     expect((await token0.balanceOf(dxdao.address)))
@@ -157,17 +157,17 @@ describe('DXswapFeeReceiver', () => {
   })
 
   it('should receive everything in ETH from one WETH-token1 pair', async () => {
-    
+
     const tokenAmount = expandTo18Decimals(100);
     const wethAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(50);
-    
+
     await token1.transfer(wethPair.address, tokenAmount)
     await WETH.transfer(wethPair.address, wethAmount)
     await wethPair.mint(wallet.address, overrides)
-    
+
     const token1IsFirstToken = (token1.address < WETH.address)
-      
+
     let amountOut = await getAmountOut(wethPair, token1.address, amountIn);
     await token1.transfer(wethPair.address, amountIn)
     await wethPair.swap(
@@ -189,16 +189,16 @@ describe('DXswapFeeReceiver', () => {
     await token1.transfer(wethPair.address, expandTo18Decimals(10))
     await WETH.transfer(wethPair.address, expandTo18Decimals(10))
     await wethPair.mint(wallet.address, overrides)
-    
+
     const protocolFeeLPToknesReceived = await wethPair.balanceOf(feeReceiver.address);
     expect(protocolFeeLPToknesReceived.div(ROUND_EXCEPTION))
     .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
-    
+
     const token1FromProtocolFee = protocolFeeLPToknesReceived
-      .mul(await token1.balanceOf(wethPair.address)).div(await wethPair.totalSupply()); 
+      .mul(await token1.balanceOf(wethPair.address)).div(await wethPair.totalSupply());
     const wethFromProtocolFee = protocolFeeLPToknesReceived
       .mul(await WETH.balanceOf(wethPair.address)).div(await wethPair.totalSupply());
-  
+
     const token1ReserveBeforeSwap = (await token1.balanceOf(wethPair.address)).sub(token1FromProtocolFee)
     const wethReserveBeforeSwap = (await WETH.balanceOf(wethPair.address)).sub(wethFromProtocolFee)
     const wethFromToken1FromProtocolFee = await getAmountOutSync(
@@ -208,7 +208,7 @@ describe('DXswapFeeReceiver', () => {
       token1FromProtocolFee,
       await wethPair.swapFee()
     );
-  
+
     const protocolFeeReceiverBalanceBeforeTake = await provider.getBalance(protocolFeeReceiver.address)
 
     await feeReceiver.connect(wallet).takeProtocolFee([wethPair.address], overrides)
@@ -221,17 +221,17 @@ describe('DXswapFeeReceiver', () => {
     expect((await provider.getBalance(protocolFeeReceiver.address)))
       .to.be.eq(protocolFeeReceiverBalanceBeforeTake.add(wethFromToken1FromProtocolFee).add(wethFromProtocolFee))
   })
-  
+
   it(
     'should receive only tokens when extracting fee from tokenA-tokenB pair that has no path to WETH',
-    async () => 
+    async () =>
   {
     const tokenA = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
     const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
-    
+
     const tokenAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(50);
-    
+
     await factory.createPair(tokenA.address, tokenB.address);
     const tokenATokenBPair = new Contract(
       await factory.getPair(
@@ -243,7 +243,7 @@ describe('DXswapFeeReceiver', () => {
     await tokenA.transfer(tokenATokenBPair.address, tokenAmount)
     await tokenB.transfer(tokenATokenBPair.address, tokenAmount)
     await tokenATokenBPair.mint(wallet.address, overrides)
-  
+
     let amountOut = await getAmountOut(tokenATokenBPair, tokenA.address, amountIn);
     await tokenA.transfer(tokenATokenBPair.address, amountIn)
     await tokenATokenBPair.swap(
@@ -259,19 +259,19 @@ describe('DXswapFeeReceiver', () => {
       (tokenA.address < tokenB.address) ? 0 : amountOut,
       wallet.address, '0x', overrides
     )
-    
+
     const protocolFeeToReceive = await calcProtocolFee(tokenATokenBPair);
 
     await tokenA.transfer(tokenATokenBPair.address, expandTo18Decimals(10))
     await tokenB.transfer(tokenATokenBPair.address, expandTo18Decimals(10))
     await tokenATokenBPair.mint(wallet.address, overrides)
-    
+
     const protocolFeeLPTokenAtokenBPair = await tokenATokenBPair.balanceOf(feeReceiver.address);
     expect(protocolFeeLPTokenAtokenBPair.div(ROUND_EXCEPTION))
     .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
-    
+
     const tokenAFromProtocolFee = protocolFeeLPTokenAtokenBPair
-    .mul(await tokenA.balanceOf(tokenATokenBPair.address)).div(await tokenATokenBPair.totalSupply()); 
+    .mul(await tokenA.balanceOf(tokenATokenBPair.address)).div(await tokenATokenBPair.totalSupply());
     const tokenBFromProtocolFee = protocolFeeLPTokenAtokenBPair
     .mul(await tokenB.balanceOf(tokenATokenBPair.address)).div(await tokenATokenBPair.totalSupply());
 
@@ -284,7 +284,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await tokenATokenBPair.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await provider.getBalance(feeReceiver.address)).to.eq(0)
-    
+
     expect((await provider.getBalance(protocolFeeReceiver.address)))
       .to.be.eq(protocolFeeReceiverBalance)
     expect((await tokenA.balanceOf(dxdao.address)))
@@ -292,7 +292,7 @@ describe('DXswapFeeReceiver', () => {
     expect((await tokenB.balanceOf(dxdao.address)))
       .to.be.eq(tokenBFromProtocolFee)
   })
-  
+
   it(
     'should receive only tokens when extracting fee from both tokenA-tonkenB pair and tokenC-tokenD pair',
     async () =>
@@ -303,7 +303,7 @@ describe('DXswapFeeReceiver', () => {
     // Set up tokenA-tokenB
     const tokenA = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
     const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
-    
+
     await factory.createPair(tokenA.address, tokenB.address);
     const tokenATokenBPair = new Contract(
       await factory.getPair(
@@ -315,7 +315,7 @@ describe('DXswapFeeReceiver', () => {
     await tokenA.transfer(tokenATokenBPair.address, tokenAmount)
     await tokenB.transfer(tokenATokenBPair.address, tokenAmount)
     await tokenATokenBPair.mint(wallet.address, overrides)
-  
+
     let amountOut = await getAmountOut(tokenATokenBPair, tokenA.address, amountIn);
     await tokenA.transfer(tokenATokenBPair.address, amountIn)
     await tokenATokenBPair.swap(
@@ -331,13 +331,13 @@ describe('DXswapFeeReceiver', () => {
       (tokenA.address < tokenB.address) ? 0 : amountOut,
       wallet.address, '0x', overrides
     )
-    
+
     let protocolFeeToReceive = await calcProtocolFee(tokenATokenBPair);
-    
+
     await tokenA.transfer(tokenATokenBPair.address, expandTo18Decimals(10))
     await tokenB.transfer(tokenATokenBPair.address, expandTo18Decimals(10))
     await tokenATokenBPair.mint(wallet.address, overrides)
-    
+
     const protocolFeeLPTokenAtokenBPair = await tokenATokenBPair.balanceOf(feeReceiver.address);
     expect(protocolFeeLPTokenAtokenBPair.div(ROUND_EXCEPTION))
       .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
@@ -345,7 +345,7 @@ describe('DXswapFeeReceiver', () => {
     // Set up tokenC-tokenD pair
     const tokenC = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
     const tokenD = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
-    
+
     await factory.createPair(tokenC.address, tokenD.address);
     const tokenCTokenDPair = new Contract(
       await factory.getPair(
@@ -373,23 +373,23 @@ describe('DXswapFeeReceiver', () => {
       (tokenC.address < tokenD.address) ? 0 : amountOut,
       wallet.address, '0x', overrides
     )
-    
+
     protocolFeeToReceive = await calcProtocolFee(tokenCTokenDPair);
 
     await tokenC.transfer(tokenCTokenDPair.address, expandTo18Decimals(10))
     await tokenD.transfer(tokenCTokenDPair.address, expandTo18Decimals(10))
     await tokenCTokenDPair.mint(wallet.address, overrides)
-    
+
     const protocolFeeLPTokenCtokenDPair = await tokenCTokenDPair.balanceOf(feeReceiver.address);
     expect(protocolFeeLPTokenCtokenDPair.div(ROUND_EXCEPTION))
       .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
-    
+
     const tokenAFromProtocolFee = protocolFeeLPTokenAtokenBPair
-      .mul(await tokenA.balanceOf(tokenATokenBPair.address)).div(await tokenATokenBPair.totalSupply()); 
+      .mul(await tokenA.balanceOf(tokenATokenBPair.address)).div(await tokenATokenBPair.totalSupply());
     const tokenBFromProtocolFee = protocolFeeLPTokenAtokenBPair
       .mul(await tokenB.balanceOf(tokenATokenBPair.address)).div(await tokenATokenBPair.totalSupply());
     const tokenCFromProtocolFee = protocolFeeLPTokenCtokenDPair
-      .mul(await tokenC.balanceOf(tokenCTokenDPair.address)).div(await tokenCTokenDPair.totalSupply()); 
+      .mul(await tokenC.balanceOf(tokenCTokenDPair.address)).div(await tokenCTokenDPair.totalSupply());
     const tokenDFromProtocolFee = protocolFeeLPTokenCtokenDPair
       .mul(await tokenD.balanceOf(tokenCTokenDPair.address)).div(await tokenCTokenDPair.totalSupply());
 
@@ -406,7 +406,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await pair.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await provider.getBalance(feeReceiver.address)).to.eq(0)
-    
+
     expect((await provider.getBalance(protocolFeeReceiver.address)))
     .to.be.eq(protocolFeeReceiverBalance)
     expect((await tokenA.balanceOf(dxdao.address)))
@@ -442,7 +442,7 @@ describe('DXswapFeeReceiver', () => {
 
   it(
     'should revert with insufficient liquidity error if there is not any liquidity in the WETH pair',
-    async () => 
+    async () =>
   {
     const tokenAmount = expandTo18Decimals(100);
     const wethAmount = expandTo18Decimals(100);
@@ -451,7 +451,7 @@ describe('DXswapFeeReceiver', () => {
     await token0.transfer(pair.address, tokenAmount)
     await token1.transfer(pair.address, tokenAmount)
     await pair.mint(wallet.address, overrides)
-  
+
     let amountOut = await getAmountOut(pair, token0.address, amountIn);
     await token0.transfer(pair.address, amountIn)
     await pair.swap(0, amountOut, wallet.address, '0x', overrides)
@@ -459,17 +459,17 @@ describe('DXswapFeeReceiver', () => {
     amountOut = await getAmountOut(pair, token1.address, amountIn);
     await token1.transfer(pair.address, amountIn)
     await pair.swap(amountOut, 0, wallet.address, '0x', overrides)
-    
+
     const protocolFeeToReceive = await calcProtocolFee(pair);
-        
+
     await token0.transfer(pair.address, expandTo18Decimals(10))
     await token1.transfer(pair.address, expandTo18Decimals(10))
     await pair.mint(wallet.address, overrides)
-    
+
     const protocolFeeLPToknesReceived = await pair.balanceOf(feeReceiver.address);
     expect(protocolFeeLPToknesReceived.div(ROUND_EXCEPTION))
       .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
-  
+
     const protocolFeeReceiverBalance = await provider.getBalance(protocolFeeReceiver.address)
 
     await expect(feeReceiver.connect(wallet).takeProtocolFee([pair.address], overrides)).to.be.revertedWith('DXswapFeeReceiver: INSUFFICIENT_LIQUIDITY')
@@ -479,7 +479,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await token1.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await provider.getBalance(feeReceiver.address)).to.eq(0)
-    
+
     expect((await provider.getBalance(protocolFeeReceiver.address)))
       .to.be.eq(protocolFeeReceiverBalance)
     expect((await token0.balanceOf(dxdao.address)))
