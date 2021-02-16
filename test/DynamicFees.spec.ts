@@ -128,7 +128,7 @@ describe('DynamicFees', () => {
 
   it('feeTo:on, swapFee:default, protocolFeeDenominator:default', async () => {
     await feeSetter.setFeeTo(other.address)
-    expect(await factory.protocolFeeDenominator()).to.eq(9)
+    expect(await factory.protocolFeeDenominator()).to.eq(5)
 
     await addLiquidity(expandTo18Decimals(5), expandTo18Decimals(10))
 
@@ -186,7 +186,7 @@ describe('DynamicFees', () => {
 
   it('feeTo:on, swapFee:0.2%, protocolFeeDenominator:disabled', async () => {
     await feeSetter.setSwapFee(pair.address, 20)
-    expect(await factory.protocolFeeDenominator()).to.eq(9)
+    expect(await factory.protocolFeeDenominator()).to.eq(5)
     expect(await pair.swapFee()).to.eq(20)
 
     await addLiquidity(expandTo18Decimals(5), expandTo18Decimals(10))

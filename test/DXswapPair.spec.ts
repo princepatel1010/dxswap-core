@@ -315,13 +315,13 @@ describe('DXswapPair', () => {
     const expectedLiquidity = expandTo18Decimals(1000)
     await pair.connect(wallet).transfer(pair.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
     await pair.connect(wallet).burn(wallet.address, overrides)
-    expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY.add('149850284580759'))
-    expect(await pair.balanceOf(other.address)).to.eq('149850284580759')
+    expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY.add('249750499251388'))
+    expect(await pair.balanceOf(other.address)).to.eq('249750499251388')
 
     // using 1000 here instead of the symbolic MINIMUM_LIQUIDITY because the amounts only happen to be equal...
     // ...because the initial liquidity amounts were equal
-    expect(await token0.balanceOf(pair.address)).to.eq(bigNumberify(1000).add('149701010218466'))
-    expect(await token1.balanceOf(pair.address)).to.eq(bigNumberify(1000).add('150000112387782'))
+    expect(await token0.balanceOf(pair.address)).to.eq(bigNumberify(1000).add('249501683697445'))
+    expect(await token1.balanceOf(pair.address)).to.eq(bigNumberify(1000).add('250000187312969'))
   })
 
   it('feeTo:on:0.025', async () => {

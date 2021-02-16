@@ -3,7 +3,7 @@ import { Contract, utils } from 'ethers'
 import { AddressZero } from 'ethers/constants'
 import { BigNumber, bigNumberify, defaultAbiCoder } from 'ethers/utils'
 import { solidity, MockProvider, deployContract } from 'ethereum-waffle'
-import { getCreate2Address, expandTo18Decimals } from './shared/utilities'
+import { getCreate2Address, expandTo18Decimals, expandToDecimals } from './shared/utilities'
 import { factoryFixture } from './shared/fixtures'
 
 import ERC20 from '../build/ERC20.json'
@@ -38,15 +38,21 @@ describe('DXswapDeployer', () => {
     token1 = await deployContract(tokenOwner, ERC20, [expandTo18Decimals(20000)], overrides)
     token2 = await deployContract(tokenOwner, ERC20, [expandTo18Decimals(20000)], overrides)
     const weth = await deployContract(tokenOwner, WETH9)
+    const honeyToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
+    const hsfToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
     // Deploy DXswapDeployer
     dxSwapDeployer = await deployContract(
       dxdao, DXswapDeployer, [
-        protocolFeeReceiver.address,
         dxdao.address,
         weth.address,
         [token0.address, token0.address, token1.address],
         [token1.address, token2.address, token2.address],
         [10, 20, 30],
+        honeyToken.address,
+        hsfToken.address,
+        protocolFeeReceiver.address,
+        protocolFeeReceiver.address,
+        expandToDecimals(5, 9)
       ], overrides
     )
     expect(await dxSwapDeployer.state()).to.eq(0)
@@ -124,7 +130,7 @@ describe('DXswapDeployer', () => {
     // Conpare onchain information to offchain predicted information
     expect(await pairFactory.feeTo()).to.eq(feeReceiverAddress)
     expect(await pairFactory.feeToSetter()).to.eq(feeSetterAddress)
-    expect(await pairFactory.protocolFeeDenominator()).to.eq(9)
+    expect(await pairFactory.protocolFeeDenominator()).to.eq(5)
     expect(await pairFactory.allPairsLength()).to.eq(3)
 
     expect(pair01.address).to.eq(pair01Address)
