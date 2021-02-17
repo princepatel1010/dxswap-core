@@ -21,14 +21,14 @@ const TEST_ADDRESSES: [string, string] = [
   '0x2000000000000000000000000000000000000000'
 ]
 
-describe('DXswapFeeReceiver', () => {
+describe.only('DXswapFeeReceiver', () => {
   const provider = new MockProvider({
     hardfork: 'istanbul',
     mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
-    gasLimit: 9999999
+    gasLimit: 18000000
   })
   const overrides = {
-    gasLimit: 9999999
+    gasLimit: 18000000
   }
   const [dxdao, wallet, protocolFeeReceiver, other] = provider.getWallets()
   const loadFixture = createFixtureLoader(provider, [dxdao, wallet, protocolFeeReceiver])
@@ -82,6 +82,7 @@ describe('DXswapFeeReceiver', () => {
   let token1: Contract
   let pair: Contract
   let wethPair: Contract
+  let wethPairToken0: Contract
   let WETH: Contract
   let feeSetter: Contract
   let feeReceiver: Contract
@@ -92,14 +93,15 @@ describe('DXswapFeeReceiver', () => {
     token1 = fixture.token1
     pair = fixture.pair
     wethPair = fixture.wethPair
+    wethPairToken0 = fixture.wethPairToken0
     WETH = fixture.WETH
     feeSetter = fixture.feeSetter
     feeReceiver = fixture.feeReceiver
   })
 
   // Where token0-token1 and token1-WETH pairs exist
-  it(
-    'should receive token0 to fallbackreceiver and ETH to ethReceiver when extracting fee from token0-token1',
+  it.only(
+    'should receive honey and hsf tokens to protocol fee receiver address',
     async () =>
   {
     const tokenAmount = expandTo18Decimals(100);
@@ -114,8 +116,11 @@ describe('DXswapFeeReceiver', () => {
     await WETH.transfer(wethPair.address, wethAmount)
     await wethPair.mint(wallet.address, overrides)
 
-    let amountOut = await getAmountOut(pair, token0.address, amountIn);
+    await token0.transfer(wethPairToken0.address, tokenAmount)
+    await WETH.transfer(wethPairToken0.address, wethAmount)
+    await wethPairToken0.mint(wallet.address, overrides)
 
+    let amountOut = await getAmountOut(pair, token0.address, amountIn);
     await token0.transfer(pair.address, amountIn)
     await pair.swap(0, amountOut, wallet.address, '0x', overrides)
 
@@ -129,13 +134,13 @@ describe('DXswapFeeReceiver', () => {
     await token1.transfer(pair.address, expandTo18Decimals(10))
     await pair.mint(wallet.address, overrides)
 
-    const protocolFeeLPToknesReceived = await pair.balanceOf(feeReceiver.address);
-    expect(protocolFeeLPToknesReceived.div(ROUND_EXCEPTION))
+    const protocolFeeLPTokensReceived = await pair.balanceOf(feeReceiver.address);
+    expect(protocolFeeLPTokensReceived.div(ROUND_EXCEPTION))
     .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
 
-    const token0FromProtocolFee = protocolFeeLPToknesReceived
+    const token0FromProtocolFee = protocolFeeLPTokensReceived
     .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply());
-    const token1FromProtocolFee = protocolFeeLPToknesReceived
+    const token1FromProtocolFee = protocolFeeLPTokensReceived
     .mul(await token1.balanceOf(pair.address)).div(await pair.totalSupply());
 
     const wethFromToken1FromProtocolFee = await getAmountOut(wethPair, token1.address, token1FromProtocolFee);

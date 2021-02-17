@@ -53,6 +53,9 @@ interface PairFixture extends FactoryFixture {
   token1: Contract
   pair: Contract
   wethPair: Contract
+  wethPairToken0: Contract
+  honeyWethPair: Contract
+  hsfWethPair: Contract
 }
 
 export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethReceiver]: Wallet[]): Promise<PairFixture> {
@@ -60,8 +63,8 @@ export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethRec
   const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const WETH = await deployContract(wallet, WETH9)
   await WETH.deposit({value: expandTo18Decimals(1000)})
-  const honeyToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
-  const hsfToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(1000)])
+  const honeyToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(10000)])
+  const hsfToken = await deployContract(dxdao, ERC20, [expandTo18Decimals(10000)])
   const token0 = tokenA.address < tokenB.address ? tokenA : tokenB
   const token1 = token0.address === tokenA.address ? tokenB : tokenA
 
@@ -69,9 +72,9 @@ export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethRec
     dxdao, DXswapDeployer, [
       dxdao.address,
       WETH.address,
-      [token0.address, token1.address],
-      [token1.address, WETH.address],
-      [15, 15],
+      [token0.address, token1.address, token0.address, honeyToken.address, hsfToken.address],
+      [token1.address, WETH.address, WETH.address, WETH.address, WETH.address],
+      [15, 15, 15, 15, 15],
       honeyToken.address,
       hsfToken.address,
       ethReceiver.address,
@@ -99,6 +102,27 @@ export async function pairFixture(provider: Web3Provider, [dxdao, wallet, ethRec
      await factory.getPair(token1.address, WETH.address),
      JSON.stringify(DXswapPair.abi), provider
    ).connect(dxdao)
+  const wethPairToken0 = new Contract(
+    await factory.getPair(token0.address, WETH.address),
+    JSON.stringify(DXswapPair.abi), provider
+  ).connect(dxdao)
+  const honeyWethPair = new Contract(
+    await factory.getPair(honeyToken.address, WETH.address),
+    JSON.stringify(DXswapPair.abi), provider
+  ).connect(dxdao)
+  const hsfWethPair = new Contract(
+    await factory.getPair(hsfToken.address, WETH.address),
+    JSON.stringify(DXswapPair.abi), provider
+  ).connect(dxdao)
 
-  return { factory, feeSetter, feeReceiver, WETH, honeyToken, hsfToken, token0, token1, pair, wethPair }
+  await honeyToken.transfer(honeyWethPair.address, expandTo18Decimals(100))
+  await WETH.transfer(honeyWethPair.address, expandTo18Decimals(100))
+  await honeyWethPair.mint(wallet.address, overrides)
+
+  await hsfToken.transfer(hsfWethPair.address, expandTo18Decimals(100))
+  await WETH.transfer(hsfWethPair.address, expandTo18Decimals(100))
+  await hsfWethPair.mint(wallet.address, overrides)
+
+  return { factory, feeSetter, feeReceiver, WETH, honeyToken, hsfToken, token0, token1, pair, wethPair,
+    wethPairToken0, honeyWethPair, hsfWethPair }
 }

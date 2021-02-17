@@ -10,7 +10,7 @@ import './libraries/SafeMath.sol';
 contract DXswapFeeReceiver {
     using SafeMath for uint;
 
-    uint256 ONE_HUNDRED_PERCENT = 10^10;
+    uint256 ONE_HUNDRED_PERCENT = 10**10;
 
     address public owner;
     IDXswapFactory public factory;
@@ -78,7 +78,7 @@ contract DXswapFeeReceiver {
 
     // Done with code form DXswapRouter and DXswapLibrary, removed the deadline argument
     function _swapTokens(uint amountIn, address fromToken, address toToken)
-    internal returns (uint256 amountOut)
+        internal returns (uint256 amountOut)
     {
         IDXswapPair pairToUse = IDXswapPair(_pairFor(fromToken, toToken));
 
