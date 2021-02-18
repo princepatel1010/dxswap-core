@@ -10,8 +10,7 @@ import './libraries/SafeMath.sol';
 contract DXswapFeeReceiver {
     using SafeMath for uint;
 
-    uint256 ONE_HUNDRED_PERCENT = 10**10;
-
+    uint256 public constant ONE_HUNDRED_PERCENT = 10**10;
     address public owner;
     IDXswapFactory public factory;
     IWETH public WETH;
@@ -76,7 +75,7 @@ contract DXswapFeeReceiver {
             ))));
     }
 
-    // Done with code form DXswapRouter and DXswapLibrary, removed the deadline argument
+    // Done with code from DXswapRouter and DXswapLibrary, removed the deadline argument
     function _swapTokens(uint amountIn, address fromToken, address toToken)
         internal returns (uint256 amountOut)
     {
@@ -100,9 +99,6 @@ contract DXswapFeeReceiver {
         pairToUse.swap(
             amount0Out, amount1Out, address(this), new bytes(0)
         );
-
-        //        IWETH(WETH).withdraw(amountOut);
-        //        TransferHelper.safeTransferETH(ethReceiver, amountOut);
     }
 
     // Transfer to the owner address the token converted into ETH if possible, if not just transfer the token.
@@ -131,7 +127,9 @@ contract DXswapFeeReceiver {
             TransferHelper.safeTransfer(honeyToken, honeyReceiver, honeyEarned);
 
             uint256 hsfEarned = _swapTokens(wethToConvertToHsf, address(WETH), hsfToken);
-            TransferHelper.safeTransfer(hsfToken, hsfReceiver, hsfEarned);
+            uint256 halfHsfEarned = hsfEarned / 2;
+            TransferHelper.safeTransfer(hsfToken, hsfReceiver, halfHsfEarned);
+            TransferHelper.safeTransfer(hsfToken, address(0), halfHsfEarned);
         }
     }
 }
