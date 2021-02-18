@@ -2,7 +2,7 @@ pragma solidity =0.5.16;
 
 import './DXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
-import './interfaces/IWrappedNativeCurrency.sol';
+import './interfaces/IERC20.sol';
 import './DXswapFeeSetter.sol';
 import './DXswapFeeReceiver.sol';
 
@@ -11,8 +11,7 @@ contract DXswapDeployer {
 
     address payable public protocolFeeReceiver;
     address payable public owner;
-    IWrappedNativeCurrency public wrappedNativeCurrency;
-    address public honeyToken;
+    IERC20 public honeyToken;
     address public hsfToken;
     address public honeyReceiver;
     address public hsfReceiver;
@@ -35,18 +34,16 @@ contract DXswapDeployer {
     // Step 1: Create the deployer contract with all the needed information for deployment.
     constructor(
         address payable _owner,
-        IWrappedNativeCurrency _wrappedNativeCurrency,
         address[] memory tokensA,
         address[] memory tokensB,
         uint32[] memory swapFees,
-        address _honeyToken,
+        IERC20 _honeyToken,
         address _hsfToken,
         address _honeyReceiver,
         address _hsfReceiver,
         uint256 _splitHoneyProportion
     ) public {
         owner = _owner;
-        wrappedNativeCurrency = _wrappedNativeCurrency;
         honeyToken = _honeyToken;
         hsfToken = _hsfToken;
         honeyReceiver = _honeyReceiver;
@@ -73,7 +70,7 @@ contract DXswapDeployer {
     // Step 3: Deploy DXswapFactory and all initial pairs
     function deploy() public {
         require(state == 1, 'DXswapDeployer: WRONG_DEPLOYER_STATE');
-        DXswapFactory dxSwapFactory = new DXswapFactory(address(this), honeyToken);
+        DXswapFactory dxSwapFactory = new DXswapFactory(address(this), address(honeyToken));
         emit PairFactoryDeployed(address(dxSwapFactory));
         for(uint8 i = 0; i < initialTokenPairs.length; i ++) {
             address newPair = dxSwapFactory.createPair(initialTokenPairs[i].tokenA, initialTokenPairs[i].tokenB);
@@ -83,7 +80,7 @@ contract DXswapDeployer {
             );
         }
         DXswapFeeReceiver dxSwapFeeReceiver = new DXswapFeeReceiver(
-            owner, address(dxSwapFactory), wrappedNativeCurrency, honeyToken, hsfToken, honeyReceiver, hsfReceiver, splitHoneyProportion
+            owner, address(dxSwapFactory), honeyToken, hsfToken, honeyReceiver, hsfReceiver, splitHoneyProportion
         );
         emit FeeReceiverDeployed(address(dxSwapFeeReceiver));
         dxSwapFactory.setFeeTo(address(dxSwapFeeReceiver));

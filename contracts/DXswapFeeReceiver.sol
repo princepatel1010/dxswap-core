@@ -2,7 +2,7 @@ pragma solidity =0.5.16;
 
 import './interfaces/IDXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
-import './interfaces/IWrappedNativeCurrency.sol';
+import './interfaces/IERC20.sol';
 import './libraries/TransferHelper.sol';
 import './libraries/SafeMath.sol';
 
@@ -13,21 +13,19 @@ contract DXswapFeeReceiver {
     uint256 public constant ONE_HUNDRED_PERCENT = 10**10;
     address public owner;
     IDXswapFactory public factory;
-    IWrappedNativeCurrency public wrappedNativeCurrency;
-    address public honeyToken;
+    IERC20 public honeyToken;
     address public hsfToken;
     address public honeyReceiver;
     address public hsfReceiver;
     uint256 public splitHoneyProportion;
 
     constructor(
-        address _owner, address _factory, IWrappedNativeCurrency _wrappedNativeCurrency, address _honeyToken, address _hsfToken, address _honeyReceiver,
+        address _owner, address _factory, IERC20 _honeyToken, address _hsfToken, address _honeyReceiver,
         address _hsfReceiver, uint256 _splitHoneyProportion
     ) public {
         require(_splitHoneyProportion <= ONE_HUNDRED_PERCENT / 2, 'DXswapFeeReceiver: HONEY_PROPORTION_TOO_HIGH');
         owner = _owner;
         factory = IDXswapFactory(_factory);
-        wrappedNativeCurrency = _wrappedNativeCurrency;
         honeyToken = _honeyToken;
         hsfToken = _hsfToken;
         honeyReceiver = _honeyReceiver;
@@ -108,9 +106,9 @@ contract DXswapFeeReceiver {
         );
     }
 
-    function _swapForWrappedNativeCurrency(address token, uint amount) internal {
-        require(_isContract(_pairFor(token, address(wrappedNativeCurrency))), 'DXswapFeeReceiver: WRAPPED_NATIVE_CURRENCY_PAIR_NOT_CONTRACT');
-        _swapTokens(amount, token, address(wrappedNativeCurrency));
+    function _swapForHoney(address token, uint amount) internal {
+        require(_isContract(_pairFor(token, address(honeyToken))), 'DXswapFeeReceiver: NO_HONEY_PAIR');
+        _swapTokens(amount, token, address(honeyToken));
     }
 
     // Take what was charged as protocol fee from the DXswap pair liquidity
@@ -121,19 +119,17 @@ contract DXswapFeeReceiver {
             pairs[i].transfer(address(pairs[i]), pairs[i].balanceOf(address(this)));
             (uint amount0, uint amount1) = pairs[i].burn(address(this));
 
-            if (amount0 > 0 && token0 != address(wrappedNativeCurrency))
-                _swapForWrappedNativeCurrency(token0, amount0);
-            if (amount1 > 0 && token1 != address(wrappedNativeCurrency))
-                _swapForWrappedNativeCurrency(token1, amount1);
+            if (amount0 > 0 && token0 != address(honeyToken))
+                _swapForHoney(token0, amount0);
+            if (amount1 > 0 && token1 != address(honeyToken))
+                _swapForHoney(token1, amount1);
 
-            uint256 wNativeBalance = wrappedNativeCurrency.balanceOf(address(this));
-            uint256 wNativeToConvertToHoney = (wNativeBalance.mul(splitHoneyProportion)) / ONE_HUNDRED_PERCENT;
-            uint256 wNativeToConvertToHsf = wNativeBalance.sub(wNativeToConvertToHoney);
+            uint256 honeyBalance = honeyToken.balanceOf(address(this));
+            uint256 honeyEarned = (honeyBalance.mul(splitHoneyProportion)) / ONE_HUNDRED_PERCENT;
+            TransferHelper.safeTransfer(address(honeyToken), honeyReceiver, honeyEarned);
 
-            uint256 honeyEarned = _swapTokens(wNativeToConvertToHoney, address(wrappedNativeCurrency), honeyToken);
-            TransferHelper.safeTransfer(honeyToken, honeyReceiver, honeyEarned);
-
-            uint256 hsfEarned = _swapTokens(wNativeToConvertToHsf, address(wrappedNativeCurrency), hsfToken);
+            uint256 honeyToConvertToHsf = honeyBalance.sub(honeyEarned);
+            uint256 hsfEarned = _swapTokens(honeyToConvertToHsf, address(honeyToken), hsfToken);
             uint256 halfHsfEarned = hsfEarned / 2;
             TransferHelper.safeTransfer(hsfToken, hsfReceiver, halfHsfEarned);
             TransferHelper.safeTransfer(hsfToken, address(0), halfHsfEarned);

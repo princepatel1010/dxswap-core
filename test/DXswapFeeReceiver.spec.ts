@@ -94,8 +94,8 @@ describe('DXswapFeeReceiver', () => {
   }
 
   let factory: Contract, token0: Contract, token1: Contract, token2: Contract, honeyToken: Contract, hsfToken: Contract,
-    pair: Contract, wethPairToken0: Contract, wethPairToken1: Contract, honeyWethPair: Contract, hsfWethPair: Contract,
-    missingWethPairPair: Contract, WETH: Contract, feeSetter: Contract, feeReceiver: Contract
+    pair: Contract, hnyPairToken0: Contract, hnyPairToken1: Contract, hsfHnyPair: Contract,
+    missingHnyPairPair: Contract, feeSetter: Contract, feeReceiver: Contract
 
   beforeEach(async () => {
     const fixture = await loadFixture(pairFixture)
@@ -106,26 +106,22 @@ describe('DXswapFeeReceiver', () => {
     honeyToken = fixture.honeyToken
     hsfToken = fixture.hsfToken
     pair = fixture.pair
-    wethPairToken1 = fixture.wethPairToken1
-    wethPairToken0 = fixture.wethPairToken0
-    honeyWethPair = fixture.honeyWethPair
-    hsfWethPair = fixture.hsfWethPair
-    missingWethPairPair = fixture.missingWethPairPair
-    WETH = fixture.WETH
+    hnyPairToken1 = fixture.hnyPairToken1
+    hnyPairToken0 = fixture.hnyPairToken0
+    hsfHnyPair = fixture.hsfHnyPair
+    missingHnyPairPair = fixture.missingHnyPairPair
     feeSetter = fixture.feeSetter
     feeReceiver = fixture.feeReceiver
   })
 
   it('should claim honey and hsf tokens from erc20-erc20 pair', async () => {
     const tokenAmount = expandTo18Decimals(100);
-    const wethAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(10);
 
     await addLiquidity(pair, token0, token1, tokenAmount, tokenAmount)
-    await addLiquidity(wethPairToken0, token0, WETH, tokenAmount, wethAmount)
-    await addLiquidity(wethPairToken1, token1, WETH, tokenAmount, wethAmount)
-    await addLiquidity(honeyWethPair, honeyToken, WETH, tokenAmount, wethAmount)
-    await addLiquidity(hsfWethPair, hsfToken, WETH, tokenAmount, wethAmount)
+    await addLiquidity(hnyPairToken0, token0, honeyToken, tokenAmount, tokenAmount)
+    await addLiquidity(hnyPairToken1, token1, honeyToken, tokenAmount, tokenAmount)
+    await addLiquidity(hsfHnyPair, hsfToken, honeyToken, tokenAmount, tokenAmount)
 
     await swapTokens(pair, token0, amountIn, true)
     await swapTokens(pair, token1, amountIn, false)
@@ -139,16 +135,16 @@ describe('DXswapFeeReceiver', () => {
       .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
 
     const token0FromProtocolFee = protocolFeeLPTokensReceived
-      .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply());
+      .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply())
     const token1FromProtocolFee = protocolFeeLPTokensReceived
-      .mul(await token1.balanceOf(pair.address)).div(await pair.totalSupply());
+      .mul(await token1.balanceOf(pair.address)).div(await pair.totalSupply())
 
-    const wethFromToken0FromProtocolFee = await getAmountOut(wethPairToken0, token0.address, token0FromProtocolFee);
-    const wethFromToken1FromProtocolFee = await getAmountOut(wethPairToken1, token1.address, token1FromProtocolFee);
-    const totalWethEarned = wethFromToken0FromProtocolFee.add(wethFromToken1FromProtocolFee)
-    const honeyFromWethEarned = await getAmountOut(honeyWethPair, honeyToken.address, totalWethEarned.div(2)); // Fixture sets honey split to 50%
-    const hsfFromWethEarned = await getAmountOut(hsfWethPair, hsfToken.address, totalWethEarned.div(2)); // Fixture sets hsf split to 50%
-    const halfHsfFromWethEarned = hsfFromWethEarned.div(2)
+    const hnyFromToken0FromProtocolFee = await getAmountOut(hnyPairToken0, token0.address, token0FromProtocolFee)
+    const hnyFromToken1FromProtocolFee = await getAmountOut(hnyPairToken1, token1.address, token1FromProtocolFee)
+    const totalHnyEarned = hnyFromToken0FromProtocolFee.add(hnyFromToken1FromProtocolFee)
+    const fractionalHnyEarned = totalHnyEarned.div(2) // Fixture sets honey split to 50%
+    const hsfFromHnyEarned = await getAmountOut(hsfHnyPair, hsfToken.address, totalHnyEarned.div(2)) // Fixture sets hsf split to 50%
+    const halfHsfFromHnyEarned = hsfFromHnyEarned.div(2)
 
     await feeReceiver.connect(wallet).takeProtocolFee([pair.address], overrides)
 
@@ -156,24 +152,21 @@ describe('DXswapFeeReceiver', () => {
     expect(await token1.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await honeyToken.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await hsfToken.balanceOf(feeReceiver.address)).to.eq(0)
-    expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await pair.balanceOf(feeReceiver.address)).to.eq(0)
 
-    expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(honeyFromWethEarned)
-    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromWethEarned)
-    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromWethEarned)
+    expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(fractionalHnyEarned)
+    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
   it('should claim honey and hsf tokens from erc20-erc20 pair with alternative honey-hsf split', async () => {
     const tokenAmount = expandTo18Decimals(100);
-    const wethAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(10);
 
     await addLiquidity(pair, token0, token1, tokenAmount, tokenAmount)
-    await addLiquidity(wethPairToken0, token0, WETH, tokenAmount, wethAmount)
-    await addLiquidity(wethPairToken1, token1, WETH, tokenAmount, wethAmount)
-    await addLiquidity(honeyWethPair, honeyToken, WETH, tokenAmount, wethAmount)
-    await addLiquidity(hsfWethPair, hsfToken, WETH, tokenAmount, wethAmount)
+    await addLiquidity(hnyPairToken0, token0, honeyToken, tokenAmount, tokenAmount)
+    await addLiquidity(hnyPairToken1, token1, honeyToken, tokenAmount, tokenAmount)
+    await addLiquidity(hsfHnyPair, hsfToken, honeyToken, tokenAmount, tokenAmount)
 
     await swapTokens(pair, token0, amountIn, true)
     await swapTokens(pair, token1, amountIn, false)
@@ -187,16 +180,16 @@ describe('DXswapFeeReceiver', () => {
       .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
 
     const token0FromProtocolFee = protocolFeeLPTokensReceived
-      .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply());
+      .mul(await token0.balanceOf(pair.address)).div(await pair.totalSupply())
     const token1FromProtocolFee = protocolFeeLPTokensReceived
-      .mul(await token1.balanceOf(pair.address)).div(await pair.totalSupply());
+      .mul(await token1.balanceOf(pair.address)).div(await pair.totalSupply())
 
-    const wethFromToken0FromProtocolFee = await getAmountOut(wethPairToken0, token0.address, token0FromProtocolFee);
-    const wethFromToken1FromProtocolFee = await getAmountOut(wethPairToken1, token1.address, token1FromProtocolFee);
-    const totalWethEarned = wethFromToken0FromProtocolFee.add(wethFromToken1FromProtocolFee)
-    const honeyFromWethEarned = await getAmountOut(honeyWethPair, honeyToken.address, totalWethEarned.div(10)); // Honey split set to 10%
-    const hsfFromWethEarned = await getAmountOut(hsfWethPair, hsfToken.address, totalWethEarned.sub(totalWethEarned.div(10))); // Hsf split set to 90%
-    const halfHsfFromWethEarned = hsfFromWethEarned.div(2)
+    const hnyFromToken0FromProtocolFee = await getAmountOut(hnyPairToken0, token0.address, token0FromProtocolFee)
+    const hnyFromToken1FromProtocolFee = await getAmountOut(hnyPairToken1, token1.address, token1FromProtocolFee)
+    const totalHnyEarned = hnyFromToken0FromProtocolFee.add(hnyFromToken1FromProtocolFee)
+    const fractionalHnyEarned = totalHnyEarned.div(10) // Fixture sets honey split to 50%
+    const hsfFromHnyEarned = await getAmountOut(hsfHnyPair, hsfToken.address, totalHnyEarned.sub(totalHnyEarned.div(10))) // Fixture sets hsf split to 50%
+    const halfHsfFromHnyEarned = hsfFromHnyEarned.div(2)
 
     await feeReceiver.changeSplitHoneyProportion(expandToDecimals(1, 9)) // 10% converted to Honey, 90% converted to HSF
     await feeReceiver.connect(wallet).takeProtocolFee([pair.address], overrides)
@@ -205,76 +198,72 @@ describe('DXswapFeeReceiver', () => {
     expect(await token1.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await honeyToken.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await hsfToken.balanceOf(feeReceiver.address)).to.eq(0)
-    expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await pair.balanceOf(feeReceiver.address)).to.eq(0)
 
-    expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(honeyFromWethEarned)
-    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromWethEarned)
-    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromWethEarned)
+    expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(fractionalHnyEarned)
+    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
-  it('should claim honey and hsf tokens from weth-erc20 pair', async () => {
+  it('should claim honey and hsf tokens from hny-erc20 pair', async () => {
     const tokenAmount = expandTo18Decimals(100);
     const wethAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(10);
 
-    await addLiquidity(wethPairToken1, token1, WETH, tokenAmount, wethAmount)
-    await addLiquidity(honeyWethPair, honeyToken, WETH, tokenAmount, wethAmount)
-    await addLiquidity(hsfWethPair, hsfToken, WETH, tokenAmount, wethAmount)
-    const token1IsFirstToken = (token1.address < WETH.address)
-    await swapTokens(wethPairToken1, token1, amountIn, token1IsFirstToken)
-    await swapTokens(wethPairToken1, WETH, amountIn, !token1IsFirstToken)
+    await addLiquidity(hnyPairToken1, token1, honeyToken, tokenAmount, wethAmount)
+    await addLiquidity(hsfHnyPair, hsfToken, honeyToken, tokenAmount, wethAmount)
+    const token1IsFirstToken = (token1.address < honeyToken.address)
+    await swapTokens(hnyPairToken1, token1, amountIn, token1IsFirstToken)
+    await swapTokens(hnyPairToken1, honeyToken, amountIn, !token1IsFirstToken)
 
-    const protocolFeeToReceive = await calcProtocolFee(wethPairToken1);
+    const protocolFeeToReceive = await calcProtocolFee(hnyPairToken1);
 
-    await addLiquidity(wethPairToken1, token1, WETH, expandTo18Decimals(10), expandTo18Decimals(10))
-    const protocolFeeLPTokensReceived = await wethPairToken1.balanceOf(feeReceiver.address);
+    await addLiquidity(hnyPairToken1, token1, honeyToken, expandTo18Decimals(10), expandTo18Decimals(10))
+    const protocolFeeLPTokensReceived = await hnyPairToken1.balanceOf(feeReceiver.address);
     expect(protocolFeeLPTokensReceived.div(ROUND_EXCEPTION))
       .to.be.eq(protocolFeeToReceive.div(ROUND_EXCEPTION))
 
     const token1FromProtocolFee = protocolFeeLPTokensReceived
-      .mul(await token1.balanceOf(wethPairToken1.address)).div(await wethPairToken1.totalSupply());
-    const wethFromProtocolFee = protocolFeeLPTokensReceived
-      .mul(await WETH.balanceOf(wethPairToken1.address)).div(await wethPairToken1.totalSupply());
+      .mul(await token1.balanceOf(hnyPairToken1.address)).div(await hnyPairToken1.totalSupply());
+    const hnyFromProtocolFee = protocolFeeLPTokensReceived
+      .mul(await honeyToken.balanceOf(hnyPairToken1.address)).div(await hnyPairToken1.totalSupply());
 
-    const token1ReserveBeforeSwap = (await token1.balanceOf(wethPairToken1.address)).sub(token1FromProtocolFee)
-    const wethReserveBeforeSwap = (await WETH.balanceOf(wethPairToken1.address)).sub(wethFromProtocolFee)
-    const wethFromToken1FromProtocolFee = await getAmountOutSync(
-      token1IsFirstToken ? token1ReserveBeforeSwap : wethReserveBeforeSwap,
-      token1IsFirstToken ? wethReserveBeforeSwap : token1ReserveBeforeSwap,
+    const token1ReserveBeforeSwap = (await token1.balanceOf(hnyPairToken1.address)).sub(token1FromProtocolFee)
+    const hnyReserveBeforeSwap = (await honeyToken.balanceOf(hnyPairToken1.address)).sub(hnyFromProtocolFee)
+    const hnyFromToken1FromProtocolFee = await getAmountOutSync(
+      token1IsFirstToken ? token1ReserveBeforeSwap : hnyReserveBeforeSwap,
+      token1IsFirstToken ? hnyReserveBeforeSwap : token1ReserveBeforeSwap,
       token1IsFirstToken,
       token1FromProtocolFee,
-      await wethPairToken1.swapFee()
+      await hnyPairToken1.swapFee()
     );
 
-    const totalWethEarned = wethFromProtocolFee.add(wethFromToken1FromProtocolFee)
-    const honeyFromWethEarned = await getAmountOut(honeyWethPair, honeyToken.address, totalWethEarned.div(2)); // Fixture sets honey split to 50%
-    const hsfFromWethEarned = await getAmountOut(hsfWethPair, hsfToken.address, totalWethEarned.div(2)); // Fixture sets hsf split to 50%
-    const halfHsfFromWethEarned = hsfFromWethEarned.div(2)
+    const totalHnyEarned = hnyFromProtocolFee.add(hnyFromToken1FromProtocolFee)
+    const honeyEarned = totalHnyEarned.div(2); // Fixture sets honey split to 50%
+    const hsfFromHnyEarned = await getAmountOut(hsfHnyPair, hsfToken.address, totalHnyEarned.div(2)); // Fixture sets hsf split to 50%
+    const halfHsfFromHnyEarned = hsfFromHnyEarned.div(2)
 
-    await feeReceiver.connect(wallet).takeProtocolFee([wethPairToken1.address], overrides)
+    await feeReceiver.connect(wallet).takeProtocolFee([hnyPairToken1.address], overrides)
 
     expect(await token1.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await honeyToken.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await hsfToken.balanceOf(feeReceiver.address)).to.eq(0)
-    expect(await WETH.balanceOf(feeReceiver.address)).to.eq(0)
-    expect(await wethPairToken1.balanceOf(feeReceiver.address)).to.eq(0)
+    expect(await hnyPairToken1.balanceOf(feeReceiver.address)).to.eq(0)
     expect(await token1.balanceOf(tokenAndContractOwner.address)).to.be.eq(0)
 
-    expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(honeyFromWethEarned)
-    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromWethEarned)
-    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromWethEarned)
+    expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(honeyEarned)
+    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
-  it('should revert when token0-weth pair has no liquidity', async () => {
+  it('should revert when token0-hny pair has no liquidity', async () => {
     const tokenAmount = expandTo18Decimals(100);
     const wethAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(10);
 
     await addLiquidity(pair, token0, token1, tokenAmount, tokenAmount)
-    await addLiquidity(wethPairToken1, token1, WETH, tokenAmount, wethAmount)
-    await addLiquidity(honeyWethPair, honeyToken, WETH, tokenAmount, wethAmount)
-    await addLiquidity(hsfWethPair, hsfToken, WETH, tokenAmount, wethAmount)
+    await addLiquidity(hnyPairToken1, token1, honeyToken, tokenAmount, wethAmount)
+    await addLiquidity(hsfHnyPair, hsfToken, honeyToken, tokenAmount, wethAmount)
 
     await swapTokens(pair, token0, amountIn, true)
     await swapTokens(pair, token1, amountIn, false)
@@ -284,22 +273,21 @@ describe('DXswapFeeReceiver', () => {
     await expect(feeReceiver.connect(wallet).takeProtocolFee([pair.address], overrides)).to.be.revertedWith('DXswapFeeReceiver: INSUFFICIENT_LIQUIDITY')
   })
 
-  it('should revert when there is no token-weth pair', async () => {
+  it('should revert when there is no token-hny pair', async () => {
     const tokenAmount = expandTo18Decimals(100);
     const wethAmount = expandTo18Decimals(100);
     const amountIn = expandTo18Decimals(10);
 
-    await addLiquidity(missingWethPairPair, token0, token2, tokenAmount, tokenAmount)
-    await addLiquidity(wethPairToken0, token0, WETH, tokenAmount, wethAmount)
-    await addLiquidity(honeyWethPair, honeyToken, WETH, tokenAmount, wethAmount)
-    await addLiquidity(hsfWethPair, hsfToken, WETH, tokenAmount, wethAmount)
+    await addLiquidity(missingHnyPairPair, token0, token2, tokenAmount, tokenAmount)
+    await addLiquidity(hnyPairToken0, token0, honeyToken, tokenAmount, wethAmount)
+    await addLiquidity(hsfHnyPair, hsfToken, honeyToken, tokenAmount, wethAmount)
 
-    await swapTokens(missingWethPairPair, token0, amountIn, true)
-    await swapTokens(missingWethPairPair, token2, amountIn, false)
+    await swapTokens(missingHnyPairPair, token0, amountIn, true)
+    await swapTokens(missingHnyPairPair, token2, amountIn, false)
 
-    await addLiquidity(missingWethPairPair, token0, token2, expandTo18Decimals(10), expandTo18Decimals(10)) // Transfers earned LP's to feeReceiver
+    await addLiquidity(missingHnyPairPair, token0, token2, expandTo18Decimals(10), expandTo18Decimals(10)) // Transfers earned LP's to feeReceiver
 
-    await expect(feeReceiver.connect(wallet).takeProtocolFee([missingWethPairPair.address], overrides)).to.be.revertedWith('DXswapFeeReceiver: WRAPPED_NATIVE_CURRENCY_PAIR_NOT_CONTRACT')
+    await expect(feeReceiver.connect(wallet).takeProtocolFee([missingHnyPairPair.address], overrides)).to.be.revertedWith('DXswapFeeReceiver: NO_HONEY_PAIR')
   })
 
   it('should only allow owner to transfer ownership', async () => {
