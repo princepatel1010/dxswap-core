@@ -24,6 +24,7 @@ contract DXswapFeeReceiver {
         address _owner, address _factory, IWrappedNativeCurrency _wrappedNativeCurrency, address _honeyToken, address _hsfToken, address _honeyReceiver,
         address _hsfReceiver, uint256 _splitHoneyProportion
     ) public {
+        require(_splitHoneyProportion <= ONE_HUNDRED_PERCENT / 2, 'DXswapFeeReceiver: HONEY_PROPORTION_TOO_HIGH');
         owner = _owner;
         factory = IDXswapFactory(_factory);
         wrappedNativeCurrency = _wrappedNativeCurrency;
@@ -41,10 +42,16 @@ contract DXswapFeeReceiver {
         owner = newOwner;
     }
 
-    function changeReceivers(address _ethReceiver, address _hsfReceiver) external {
+    function changeReceivers(address _honeyReceiver, address _hsfReceiver) external {
         require(msg.sender == owner, 'DXswapFeeReceiver: FORBIDDEN');
-        honeyReceiver = _ethReceiver;
+        honeyReceiver = _honeyReceiver;
         hsfReceiver = _hsfReceiver;
+    }
+
+    function changeSplitHoneyProportion(uint256 _splitHoneyProportion) external {
+        require(msg.sender == owner, 'DXswapFeeReceiver: FORBIDDEN');
+        require(_splitHoneyProportion <= ONE_HUNDRED_PERCENT / 2, 'DXswapFeeReceiver: HONEY_PROPORTION_TOO_HIGH');
+        splitHoneyProportion = _splitHoneyProportion;
     }
 
     // Returns sorted token addresses, used to handle return values from pairs sorted in this order

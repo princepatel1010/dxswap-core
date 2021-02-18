@@ -51,16 +51,19 @@ export async function factoryFixture(provider: Web3Provider, [dxdao, ethReceiver
 interface PairFixture extends FactoryFixture {
   token0: Contract
   token1: Contract
+  token2: Contract
   pair: Contract
   wethPairToken1: Contract
   wethPairToken0: Contract
   honeyWethPair: Contract
   hsfWethPair: Contract
+  missingWethPairPair: Contract
 }
 
 export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner, wallet, ethReceiver]: Wallet[]): Promise<PairFixture> {
   const tokenA = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
+  const tokenC = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const WETH = await deployContract(wallet, WETH9)
   await WETH.deposit({value: expandTo18Decimals(1000)})
   const honeyToken = await deployContract(tokenAndContractOwner, ERC20, [expandTo18Decimals(10000)])
@@ -72,9 +75,9 @@ export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner
     tokenAndContractOwner, DXswapDeployer, [
       tokenAndContractOwner.address,
       WETH.address,
-      [token0.address, token1.address, token0.address, honeyToken.address, hsfToken.address],
-      [token1.address, WETH.address, WETH.address, WETH.address, WETH.address],
-      [15, 15, 15, 15, 15],
+      [token0.address, token1.address, token0.address, honeyToken.address, hsfToken.address, tokenC.address],
+      [token1.address, WETH.address, WETH.address, WETH.address, WETH.address, token0.address],
+      [15, 15, 15, 15, 15, 15],
       honeyToken.address,
       hsfToken.address,
       ethReceiver.address,
@@ -114,7 +117,11 @@ export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner
     await factory.getPair(hsfToken.address, WETH.address),
     JSON.stringify(DXswapPair.abi), provider
   ).connect(tokenAndContractOwner)
+  const missingWethPairPair = new Contract(
+    await factory.getPair(tokenC.address, token0.address),
+    JSON.stringify(DXswapPair.abi), provider
+  ).connect(tokenAndContractOwner)
 
-  return { factory, feeSetter, feeReceiver, WETH, honeyToken, hsfToken, token0, token1, pair, wethPairToken1,
-    wethPairToken0, honeyWethPair, hsfWethPair }
+  return { factory, feeSetter, feeReceiver, WETH, honeyToken, hsfToken, token0, token1, token2: tokenC, pair, wethPairToken1,
+    wethPairToken0, honeyWethPair, hsfWethPair, missingWethPairPair }
 }
