@@ -2,7 +2,7 @@ pragma solidity =0.5.16;
 
 import './DXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
-import './interfaces/IWETH.sol';
+import './interfaces/IWrappedNativeCurrency.sol';
 import './DXswapFeeSetter.sol';
 import './DXswapFeeReceiver.sol';
 
@@ -10,8 +10,8 @@ import './DXswapFeeReceiver.sol';
 contract DXswapDeployer {
 
     address payable public protocolFeeReceiver;
-    address payable public dxdaoAvatar;
-    IWETH public WETH;
+    address payable public owner;
+    IWrappedNativeCurrency public wrappedNativeCurrency;
     address public honeyToken;
     address public hsfToken;
     address public honeyReceiver;
@@ -34,8 +34,8 @@ contract DXswapDeployer {
 
     // Step 1: Create the deployer contract with all the needed information for deployment.
     constructor(
-        address payable _dxdaoAvatar,
-        IWETH _WETH,
+        address payable _owner,
+        IWrappedNativeCurrency _wrappedNativeCurrency,
         address[] memory tokensA,
         address[] memory tokensB,
         uint32[] memory swapFees,
@@ -45,8 +45,8 @@ contract DXswapDeployer {
         address _hsfReceiver,
         uint256 _splitHoneyProportion
     ) public {
-        dxdaoAvatar = _dxdaoAvatar;
-        WETH = _WETH;
+        owner = _owner;
+        wrappedNativeCurrency = _wrappedNativeCurrency;
         honeyToken = _honeyToken;
         hsfToken = _hsfToken;
         honeyReceiver = _honeyReceiver;
@@ -63,10 +63,10 @@ contract DXswapDeployer {
         }
     }
 
-    // Step 2: Transfer ETH from the DXdao avatar to allow the deploy function to be called.
+    // Step 2: Transfer ETH from the to allow the deploy function to be called, creates an incentive to call.
     function() external payable {
         require(state == 0, 'DXswapDeployer: WRONG_DEPLOYER_STATE');
-        require(msg.sender == dxdaoAvatar, 'DXswapDeployer: CALLER_NOT_FEE_TO_SETTER');
+        require(msg.sender == owner, 'DXswapDeployer: CALLER_NOT_FEE_TO_SETTER');
         state = 1;
     }
 
@@ -83,12 +83,12 @@ contract DXswapDeployer {
             );
         }
         DXswapFeeReceiver dxSwapFeeReceiver = new DXswapFeeReceiver(
-            dxdaoAvatar, address(dxSwapFactory), WETH, honeyToken, hsfToken, honeyReceiver, hsfReceiver, splitHoneyProportion
+            owner, address(dxSwapFactory), wrappedNativeCurrency, honeyToken, hsfToken, honeyReceiver, hsfReceiver, splitHoneyProportion
         );
         emit FeeReceiverDeployed(address(dxSwapFeeReceiver));
         dxSwapFactory.setFeeTo(address(dxSwapFeeReceiver));
 
-        DXswapFeeSetter dxSwapFeeSetter = new DXswapFeeSetter(dxdaoAvatar, address(dxSwapFactory));
+        DXswapFeeSetter dxSwapFeeSetter = new DXswapFeeSetter(owner, address(dxSwapFactory));
         emit FeeSetterDeployed(address(dxSwapFeeSetter));
         dxSwapFactory.setFeeToSetter(address(dxSwapFeeSetter));
         state = 2;

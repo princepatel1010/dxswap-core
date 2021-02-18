@@ -2,7 +2,7 @@ pragma solidity =0.5.16;
 
 import './interfaces/IDXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
-import './interfaces/IWETH.sol';
+import './interfaces/IWrappedNativeCurrency.sol';
 import './libraries/TransferHelper.sol';
 import './libraries/SafeMath.sol';
 
@@ -13,7 +13,7 @@ contract DXswapFeeReceiver {
     uint256 public constant ONE_HUNDRED_PERCENT = 10**10;
     address public owner;
     IDXswapFactory public factory;
-    IWETH public WETH;
+    IWrappedNativeCurrency public wrappedNativeCurrency;
     address public honeyToken;
     address public hsfToken;
     address public honeyReceiver;
@@ -21,12 +21,12 @@ contract DXswapFeeReceiver {
     uint256 public splitHoneyProportion;
 
     constructor(
-        address _owner, address _factory, IWETH _WETH, address _honeyToken, address _hsfToken, address _honeyReceiver,
+        address _owner, address _factory, IWrappedNativeCurrency _wrappedNativeCurrency, address _honeyToken, address _hsfToken, address _honeyReceiver,
         address _hsfReceiver, uint256 _splitHoneyProportion
     ) public {
         owner = _owner;
         factory = IDXswapFactory(_factory);
-        WETH = _WETH;
+        wrappedNativeCurrency = _wrappedNativeCurrency;
         honeyToken = _honeyToken;
         hsfToken = _hsfToken;
         honeyReceiver = _honeyReceiver;
@@ -101,10 +101,9 @@ contract DXswapFeeReceiver {
         );
     }
 
-    // Transfer to the owner address the token converted into ETH if possible, if not just transfer the token.
-    function _swapForWeth(address token, uint amount) internal {
-        require(_isContract(_pairFor(token, address(WETH))), 'DXswapFeeReceiver: WETH_PAIR_NOT_CONTRACT');
-        _swapTokens(amount, token, address(WETH));
+    function _swapForWrappedNativeCurrency(address token, uint amount) internal {
+        require(_isContract(_pairFor(token, address(wrappedNativeCurrency))), 'DXswapFeeReceiver: WRAPPED_NATIVE_CURRENCY_PAIR_NOT_CONTRACT');
+        _swapTokens(amount, token, address(wrappedNativeCurrency));
     }
 
     // Take what was charged as protocol fee from the DXswap pair liquidity
@@ -114,19 +113,20 @@ contract DXswapFeeReceiver {
             address token1 = pairs[i].token1();
             pairs[i].transfer(address(pairs[i]), pairs[i].balanceOf(address(this)));
             (uint amount0, uint amount1) = pairs[i].burn(address(this));
-            if (amount0 > 0 && token0 != address(WETH))
-                _swapForWeth(token0, amount0);
-            if (amount1 > 0 && token1 != address(WETH))
-                _swapForWeth(token1, amount1);
 
-            uint256 wethBalance = WETH.balanceOf(address(this));
-            uint256 wethToConvertToHoney = (wethBalance.mul(splitHoneyProportion)) / ONE_HUNDRED_PERCENT;
-            uint256 wethToConvertToHsf = wethBalance.sub(wethToConvertToHoney);
+            if (amount0 > 0 && token0 != address(wrappedNativeCurrency))
+                _swapForWrappedNativeCurrency(token0, amount0);
+            if (amount1 > 0 && token1 != address(wrappedNativeCurrency))
+                _swapForWrappedNativeCurrency(token1, amount1);
 
-            uint256 honeyEarned = _swapTokens(wethToConvertToHoney, address(WETH), honeyToken);
+            uint256 wNativeBalance = wrappedNativeCurrency.balanceOf(address(this));
+            uint256 wNativeToConvertToHoney = (wNativeBalance.mul(splitHoneyProportion)) / ONE_HUNDRED_PERCENT;
+            uint256 wNativeToConvertToHsf = wNativeBalance.sub(wNativeToConvertToHoney);
+
+            uint256 honeyEarned = _swapTokens(wNativeToConvertToHoney, address(wrappedNativeCurrency), honeyToken);
             TransferHelper.safeTransfer(honeyToken, honeyReceiver, honeyEarned);
 
-            uint256 hsfEarned = _swapTokens(wethToConvertToHsf, address(WETH), hsfToken);
+            uint256 hsfEarned = _swapTokens(wNativeToConvertToHsf, address(wrappedNativeCurrency), hsfToken);
             uint256 halfHsfEarned = hsfEarned / 2;
             TransferHelper.safeTransfer(hsfToken, hsfReceiver, halfHsfEarned);
             TransferHelper.safeTransfer(hsfToken, address(0), halfHsfEarned);
