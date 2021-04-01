@@ -75,7 +75,7 @@ contract DXswapFeeReceiver {
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'f23fac090dc304615f73576672d67b74204fd7c289024743f16fc2ff983711ca' // init code hash 1hive's
+                hex'a8385fd6fff6727d9a77861adef26106f13a455160172f662a74d73bc583bfb8' // init code hash 1hive's
 //                hex'd306a548755b9295ee49cc729e13ca4a45e00199bbd890fa146da43a50571776' // init code hash original
             ))));
     }

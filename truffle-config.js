@@ -1,7 +1,8 @@
-const HDWalletProvider = require('truffle-hdwallet-provider')
+const HDWalletProvider = require('@truffle/hdwallet-provider')
 require('dotenv').config();
 
 mnemonic = process.env.KEY_MNEMONIC;
+privateKey = process.env.ETH_KEY;
 infuraApiKey = process.env.KEY_INFURA_API_KEY;
 
 module.exports = {
@@ -29,12 +30,11 @@ module.exports = {
       gasPrice: 10000000000 //10 Gwei
     },
     rinkeby: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/${infuraApiKey}`)
-      },
+      provider: () => new HDWalletProvider([privateKey], `https://rinkeby.infura.io/v3/${infuraApiKey}`),
       network_id: '4',
       gas: 9000000,
-      gasPrice: 10000000000 //10 Gwei
+      gasPrice: 2000000000, //2 Gwei,
+      skipDryRun: true
     },
     ropsten: {
       provider: function () {
@@ -59,7 +59,16 @@ module.exports = {
       network_id: '79377087078960',
       gas: 9000000,
       gasPrice: 10000000000 //10 Gwei
-    }
+    },
+    matic: {
+      provider: () => new HDWalletProvider([privateKey], `https://rpc-mainnet.maticvigil.com/`),
+      network_id: 137,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+      gasPrice: 1000000000, // 1 Gwei
+      gas: 20000000
+    },
   },
   build: {},
   compilers: {

@@ -75,9 +75,7 @@ contract DXswapDeployer {
         for(uint8 i = 0; i < initialTokenPairs.length; i ++) {
             address newPair = dxSwapFactory.createPair(initialTokenPairs[i].tokenA, initialTokenPairs[i].tokenB);
             dxSwapFactory.setSwapFee(newPair, initialTokenPairs[i].swapFee);
-            emit PairDeployed(
-                address(newPair)
-            );
+            emit PairDeployed(address(newPair));
         }
         DXswapFeeReceiver dxSwapFeeReceiver = new DXswapFeeReceiver(
             owner, address(dxSwapFactory), honeyToken, hsfToken, honeyReceiver, hsfReceiver, splitHoneyProportion
