@@ -13,7 +13,7 @@ import DXswapFeeReceiver from '../build/DXswapFeeReceiver.json'
 
 const FEE_DENOMINATOR = bigNumberify(10).pow(4)
 const ROUND_EXCEPTION = bigNumberify(10).pow(4)
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD"
 
 chai.use(solidity)
 
@@ -112,6 +112,8 @@ describe('DXswapFeeReceiver', () => {
     missingHnyPairPair = fixture.missingHnyPairPair
     feeSetter = fixture.feeSetter
     feeReceiver = fixture.feeReceiver
+
+    console.log(await factory.INIT_CODE_PAIR_HASH())
   })
 
   it('should claim honey and hsf tokens from erc20-erc20 pair', async () => {
@@ -156,7 +158,7 @@ describe('DXswapFeeReceiver', () => {
 
     expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(fractionalHnyEarned)
     expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
-    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(BURN_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
   it('should claim honey and hsf tokens from erc20-erc20 pair with alternative honey-hsf split', async () => {
@@ -202,7 +204,7 @@ describe('DXswapFeeReceiver', () => {
 
     expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(fractionalHnyEarned)
     expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
-    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(BURN_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
   it('should claim honey and hsf tokens from hny-erc20 pair', async () => {
@@ -253,7 +255,7 @@ describe('DXswapFeeReceiver', () => {
 
     expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(honeyEarned)
     expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
-    expect((await hsfToken.balanceOf(ZERO_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(BURN_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
   it('should revert when token0-hny pair has no liquidity', async () => {
