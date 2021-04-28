@@ -26,8 +26,8 @@ contract DXswapPair is IDXswapPair, DXswapERC20 {
     uint public price0CumulativeLast;
     uint public price1CumulativeLast;
     uint public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
-    uint32 public swapFee = 25; // uses 0.25% fee as default
-    
+    uint32 public swapFee = 30; // uses 0.3% fee as default
+
     uint private unlocked = 1;
     modifier lock() {
         require(unlocked == 1, 'DXswapPair: LOCKED');
@@ -69,7 +69,7 @@ contract DXswapPair is IDXswapPair, DXswapERC20 {
         token0 = _token0;
         token1 = _token1;
     }
-    
+
     // called by the factory to set the swapFee
     function setSwapFee(uint32 _swapFee) external {
         require(msg.sender == factory, 'DXswapPair: FORBIDDEN'); // sufficient check
@@ -127,7 +127,7 @@ contract DXswapPair is IDXswapPair, DXswapERC20 {
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         if (_totalSupply == 0) {
             liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
-           _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
+            _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
             liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0, amount1.mul(_totalSupply) / _reserve1);
         }
@@ -173,22 +173,22 @@ contract DXswapPair is IDXswapPair, DXswapERC20 {
         uint balance0;
         uint balance1;
         { // scope for _token{0,1}, avoids stack too deep errors
-        address _token0 = token0;
-        address _token1 = token1;
-        require(to != _token0 && to != _token1, 'DXswapPair: INVALID_TO');
-        if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
-        if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-        if (data.length > 0) IDXswapCallee(to).DXswapCall(msg.sender, amount0Out, amount1Out, data);
-        balance0 = IERC20(_token0).balanceOf(address(this));
-        balance1 = IERC20(_token1).balanceOf(address(this));
+            address _token0 = token0;
+            address _token1 = token1;
+            require(to != _token0 && to != _token1, 'DXswapPair: INVALID_TO');
+            if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
+            if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
+            if (data.length > 0) IDXswapCallee(to).DXswapCall(msg.sender, amount0Out, amount1Out, data);
+            balance0 = IERC20(_token0).balanceOf(address(this));
+            balance1 = IERC20(_token1).balanceOf(address(this));
         }
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
         require(amount0In > 0 || amount1In > 0, 'DXswapPair: INSUFFICIENT_INPUT_AMOUNT');
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-          uint balance0Adjusted = balance0.mul(10000).sub(amount0In.mul(swapFee));
-          uint balance1Adjusted = balance1.mul(10000).sub(amount1In.mul(swapFee));
-          require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(10000**2), 'DXswapPair: K');
+            uint balance0Adjusted = balance0.mul(10000).sub(amount0In.mul(swapFee));
+            uint balance1Adjusted = balance1.mul(10000).sub(amount1In.mul(swapFee));
+            require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(10000**2), 'DXswapPair: K');
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);

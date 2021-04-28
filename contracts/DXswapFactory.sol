@@ -6,7 +6,9 @@ import './DXswapPair.sol';
 contract DXswapFactory is IDXswapFactory {
     address public feeTo;
     address public feeToSetter;
-    uint8 public protocolFeeDenominator = 9; // uses ~10% of each swap fee
+    address public halfFeeToken;
+    uint8 public protocolFeeDenominator = 5; // uses 1/6 ~16% of each swap fee
+    uint32 public constant HALF_SWAP_FEE = 15;
     bytes32 public constant INIT_CODE_PAIR_HASH = keccak256(abi.encodePacked(type(DXswapPair).creationCode));
 
     mapping(address => mapping(address => address)) public getPair;
@@ -14,8 +16,9 @@ contract DXswapFactory is IDXswapFactory {
 
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
-    constructor(address _feeToSetter) public {
+    constructor(address _feeToSetter, address _halfFeeToken) public {
         feeToSetter = _feeToSetter;
+        halfFeeToken = _halfFeeToken;
     }
 
     function allPairsLength() external view returns (uint) {
@@ -33,6 +36,9 @@ contract DXswapFactory is IDXswapFactory {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
         IDXswapPair(pair).initialize(token0, token1);
+        if (token0 == halfFeeToken || token1 == halfFeeToken) {
+            IDXswapPair(pair).setSwapFee(HALF_SWAP_FEE);
+        }
         getPair[token0][token1] = pair;
         getPair[token1][token0] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
@@ -48,15 +54,20 @@ contract DXswapFactory is IDXswapFactory {
         require(msg.sender == feeToSetter, 'DXswapFactory: FORBIDDEN');
         feeToSetter = _feeToSetter;
     }
-    
+
     function setProtocolFee(uint8 _protocolFeeDenominator) external {
         require(msg.sender == feeToSetter, 'DXswapFactory: FORBIDDEN');
         require(_protocolFeeDenominator > 0, 'DXswapFactory: FORBIDDEN_FEE');
         protocolFeeDenominator = _protocolFeeDenominator;
     }
-    
+
     function setSwapFee(address _pair, uint32 _swapFee) external {
         require(msg.sender == feeToSetter, 'DXswapFactory: FORBIDDEN');
         IDXswapPair(_pair).setSwapFee(_swapFee);
+    }
+
+    function setHalfFeeToken(address _halfFeeToken) external {
+        require(msg.sender == feeToSetter, 'DXswapFactory: FORBIDDEN');
+        halfFeeToken = _halfFeeToken;
     }
 }

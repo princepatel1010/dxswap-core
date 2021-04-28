@@ -2,15 +2,20 @@ pragma solidity =0.5.16;
 
 import './DXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
+import './interfaces/IERC20.sol';
 import './DXswapFeeSetter.sol';
 import './DXswapFeeReceiver.sol';
 
 
 contract DXswapDeployer {
-    
+
     address payable public protocolFeeReceiver;
-    address payable public dxdaoAvatar;
-    address public WETH;
+    address payable public owner;
+    IERC20 public honeyToken;
+    address public hsfToken;
+    address public honeyReceiver;
+    address public hsfReceiver;
+    uint256 public splitHoneyProportion;
     uint8 public state = 0;
 
     struct TokenPair {
@@ -18,26 +23,32 @@ contract DXswapDeployer {
         address tokenB;
         uint32 swapFee;
     }
-    
+
     TokenPair[] public initialTokenPairs;
 
-    event FeeReceiverDeployed(address feeReceiver);    
+    event FeeReceiverDeployed(address feeReceiver);
     event FeeSetterDeployed(address feeSetter);
     event PairFactoryDeployed(address factory);
     event PairDeployed(address pair);
-        
+
     // Step 1: Create the deployer contract with all the needed information for deployment.
     constructor(
-        address payable _protocolFeeReceiver,
-        address payable _dxdaoAvatar,
-        address _WETH,
+        address payable _owner,
         address[] memory tokensA,
         address[] memory tokensB,
-        uint32[] memory swapFees
+        uint32[] memory swapFees,
+        IERC20 _honeyToken,
+        address _hsfToken,
+        address _honeyReceiver,
+        address _hsfReceiver,
+        uint256 _splitHoneyProportion
     ) public {
-        dxdaoAvatar = _dxdaoAvatar;
-        WETH = _WETH;
-        protocolFeeReceiver = _protocolFeeReceiver;
+        owner = _owner;
+        honeyToken = _honeyToken;
+        hsfToken = _hsfToken;
+        honeyReceiver = _honeyReceiver;
+        hsfReceiver = _hsfReceiver;
+        splitHoneyProportion = _splitHoneyProportion;
         for(uint8 i = 0; i < tokensA.length; i ++) {
             initialTokenPairs.push(
                 TokenPair(
@@ -48,38 +59,34 @@ contract DXswapDeployer {
             );
         }
     }
-    
-    // Step 2: Transfer ETH from the DXdao avatar to allow the deploy function to be called.
+
+    // Step 2: Transfer ETH from the to allow the deploy function to be called, creates an incentive to call.
     function() external payable {
         require(state == 0, 'DXswapDeployer: WRONG_DEPLOYER_STATE');
-        require(msg.sender == dxdaoAvatar, 'DXswapDeployer: CALLER_NOT_FEE_TO_SETTER');
+        require(msg.sender == owner, 'DXswapDeployer: CALLER_NOT_FEE_TO_SETTER');
         state = 1;
     }
-    
+
     // Step 3: Deploy DXswapFactory and all initial pairs
     function deploy() public {
         require(state == 1, 'DXswapDeployer: WRONG_DEPLOYER_STATE');
-        DXswapFactory dxSwapFactory = new DXswapFactory(address(this));
+        DXswapFactory dxSwapFactory = new DXswapFactory(address(this), address(honeyToken));
         emit PairFactoryDeployed(address(dxSwapFactory));
         for(uint8 i = 0; i < initialTokenPairs.length; i ++) {
             address newPair = dxSwapFactory.createPair(initialTokenPairs[i].tokenA, initialTokenPairs[i].tokenB);
             dxSwapFactory.setSwapFee(newPair, initialTokenPairs[i].swapFee);
-            emit PairDeployed(
-                address(newPair)
-            );
+            emit PairDeployed(address(newPair));
         }
         DXswapFeeReceiver dxSwapFeeReceiver = new DXswapFeeReceiver(
-            dxdaoAvatar, address(dxSwapFactory), WETH, protocolFeeReceiver, dxdaoAvatar
+            owner, address(dxSwapFactory), honeyToken, hsfToken, honeyReceiver, hsfReceiver, splitHoneyProportion
         );
         emit FeeReceiverDeployed(address(dxSwapFeeReceiver));
         dxSwapFactory.setFeeTo(address(dxSwapFeeReceiver));
-        
-        DXswapFeeSetter dxSwapFeeSetter = new DXswapFeeSetter(dxdaoAvatar, address(dxSwapFactory));
+
+        DXswapFeeSetter dxSwapFeeSetter = new DXswapFeeSetter(owner, address(dxSwapFactory));
         emit FeeSetterDeployed(address(dxSwapFeeSetter));
         dxSwapFactory.setFeeToSetter(address(dxSwapFeeSetter));
         state = 2;
         msg.sender.transfer(address(this).balance);
     }
-    
-  
 }
