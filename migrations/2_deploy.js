@@ -5,6 +5,7 @@ const ERC20 = artifacts.require('ERC20.sol')
 const argValue = (arg, defaultValue) => process.argv.includes(arg) ? process.argv[process.argv.indexOf(arg) + 1] : defaultValue
 const network = () => argValue('--network', 'local')
 const HONEY_ON_MATIC = "0xb371248Dd0f9E4061ccf8850E9223Ca48Aa7CA4b"
+const WETH_ON_MATIC = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619"
 
 module.exports = async (deployer) => {
     const BN = web3.utils.toBN
@@ -25,10 +26,10 @@ module.exports = async (deployer) => {
 
     } else if (network() === 'matic') {
 
-        const hnyToken = await deployer.deploy(ERC20, bnWithDecimals(1000000, 18))
-        const hsfToken = await deployer.deploy(ERC20, bnWithDecimals(1000000, 18))
+        // const hnyToken = await deployer.deploy(ERC20, bnWithDecimals(1000000, 18))
+        // const hsfToken = await deployer.deploy(ERC20, bnWithDecimals(1000000, 18))
 
-        // const dxSwapFactory = await deployer.deploy(DXswapFactory, senderAccount, HONEY_ON_MATIC)
-        // console.log("Pair init code hash: ", await dxSwapFactory.INIT_CODE_PAIR_HASH())
+        const dxSwapFactory = await deployer.deploy(DXswapFactory, senderAccount, WETH_ON_MATIC)
+        console.log("Pair init code hash: ", await dxSwapFactory.INIT_CODE_PAIR_HASH())
     }
 }
