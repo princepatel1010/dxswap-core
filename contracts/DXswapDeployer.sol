@@ -3,7 +3,7 @@ pragma solidity =0.5.16;
 import './DXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
 import './interfaces/IERC20.sol';
-import './interfaces/IHoneyFarm.sol';
+import './interfaces/IRewardManager.sol';
 import './DXswapFeeSetter.sol';
 import './DXswapFeeReceiver.sol';
 
@@ -15,7 +15,7 @@ contract DXswapDeployer {
     IERC20 public honeyToken;
     IERC20 public hsfToken;
     address public honeyReceiver;
-    IHoneyFarm public hsfReceiver;
+    IRewardManager public hsfReceiver;
     uint256 public splitHoneyProportion;
     uint8 public state = 0;
 
@@ -41,7 +41,7 @@ contract DXswapDeployer {
         IERC20 _honeyToken,
         IERC20 _hsfToken,
         address _honeyReceiver,
-        IHoneyFarm _hsfReceiver,
+        IRewardManager _hsfReceiver,
         uint256 _splitHoneyProportion
     ) public {
         owner = _owner;

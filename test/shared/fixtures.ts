@@ -11,7 +11,7 @@ import DXswapPair from '../../build/DXswapPair.json'
 import DXswapDeployer from '../../build/DXswapDeployer.json'
 import DXswapFeeSetter from '../../build/DXswapFeeSetter.json'
 import DXswapFeeReceiver from '../../build/DXswapFeeReceiver.json'
-import HoneyFarmMock from '../../build/HoneyFarmMock.json'
+import RewardManagerMock from '../../build/RewardManagerMock.json'
 
 interface FactoryFixture {
   factory: Contract
@@ -64,7 +64,7 @@ export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner
   const tokenC = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const honeyToken = await deployContract(tokenAndContractOwner, ERC20, [expandTo18Decimals(10000)])
   const hsfToken = await deployContract(tokenAndContractOwner, ERC20, [expandTo18Decimals(10000)])
-  const hsfReceiver = await deployContract(tokenAndContractOwner, HoneyFarmMock, [hsfToken.address])
+  const hsfReceiver = await deployContract(tokenAndContractOwner, RewardManagerMock)
   const token0 = tokenA.address < tokenB.address ? tokenA : tokenB
   const token1 = token0.address === tokenA.address ? tokenB : tokenA
 

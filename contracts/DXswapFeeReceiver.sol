@@ -3,7 +3,7 @@ pragma solidity =0.5.16;
 import './interfaces/IDXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
 import './interfaces/IERC20.sol';
-import './interfaces/IHoneyFarm.sol';
+import './interfaces/IRewardManager.sol';
 import './libraries/TransferHelper.sol';
 import './libraries/SafeMath.sol';
 
@@ -19,12 +19,12 @@ contract DXswapFeeReceiver {
     IERC20 public honeyToken;
     IERC20 public hsfToken;
     address public honeyReceiver;
-    IHoneyFarm public hsfReceiver;
+    IRewardManager public hsfReceiver;
     uint256 public splitHoneyProportion;
 
     constructor(
         address _owner, address _factory, IERC20 _honeyToken, IERC20 _hsfToken, address _honeyReceiver,
-        IHoneyFarm _hsfReceiver, uint256 _splitHoneyProportion
+        IRewardManager _hsfReceiver, uint256 _splitHoneyProportion
     ) public {
         require(_splitHoneyProportion <= ONE_HUNDRED_PERCENT / 2, 'DXswapFeeReceiver: HONEY_PROPORTION_TOO_HIGH');
         owner = _owner;
@@ -43,7 +43,7 @@ contract DXswapFeeReceiver {
         owner = newOwner;
     }
 
-    function changeReceivers(address _honeyReceiver, IHoneyFarm _hsfReceiver) external {
+    function changeReceivers(address _honeyReceiver, IRewardManager _hsfReceiver) external {
         require(msg.sender == owner, 'DXswapFeeReceiver: FORBIDDEN');
         honeyReceiver = _honeyReceiver;
         hsfReceiver = _hsfReceiver;
@@ -135,10 +135,8 @@ contract DXswapFeeReceiver {
             uint256 hsfEarned = _swapTokens(honeyToConvertToHsf, address(honeyToken), address(hsfToken));
             uint256 halfHsfEarned = hsfEarned / 2;
             TransferHelper.safeTransfer(address(hsfToken), BURN_ADDRESS, halfHsfEarned);
-
-            hsfToken.approve(address(hsfReceiver), 0);
-            hsfToken.approve(address(hsfReceiver), halfHsfEarned);
-            hsfReceiver.depositAdditionalRewards(halfHsfEarned);
+            TransferHelper.safeTransfer(address(hsfToken), address(hsfReceiver), halfHsfEarned);
+            hsfReceiver.rebalance();
         }
     }
 }
