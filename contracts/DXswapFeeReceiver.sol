@@ -3,6 +3,7 @@ pragma solidity =0.5.16;
 import './interfaces/IDXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
 import './interfaces/IERC20.sol';
+import './interfaces/IRewardManager.sol';
 import './libraries/TransferHelper.sol';
 import './libraries/SafeMath.sol';
 
@@ -16,14 +17,14 @@ contract DXswapFeeReceiver {
     address public owner;
     IDXswapFactory public factory;
     IERC20 public honeyToken;
-    address public hsfToken;
+    IERC20 public hsfToken;
     address public honeyReceiver;
-    address public hsfReceiver;
+    IRewardManager public hsfReceiver;
     uint256 public splitHoneyProportion;
 
     constructor(
-        address _owner, address _factory, IERC20 _honeyToken, address _hsfToken, address _honeyReceiver,
-        address _hsfReceiver, uint256 _splitHoneyProportion
+        address _owner, address _factory, IERC20 _honeyToken, IERC20 _hsfToken, address _honeyReceiver,
+        IRewardManager _hsfReceiver, uint256 _splitHoneyProportion
     ) public {
         require(_splitHoneyProportion <= ONE_HUNDRED_PERCENT / 2, 'DXswapFeeReceiver: HONEY_PROPORTION_TOO_HIGH');
         owner = _owner;
@@ -42,7 +43,7 @@ contract DXswapFeeReceiver {
         owner = newOwner;
     }
 
-    function changeReceivers(address _honeyReceiver, address _hsfReceiver) external {
+    function changeReceivers(address _honeyReceiver, IRewardManager _hsfReceiver) external {
         require(msg.sender == owner, 'DXswapFeeReceiver: FORBIDDEN');
         honeyReceiver = _honeyReceiver;
         hsfReceiver = _hsfReceiver;
@@ -77,7 +78,7 @@ contract DXswapFeeReceiver {
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'5d5dfa98b23ace472a8581d664cd33b83c335db3009d1477c491e1cda864ad63' // matic init code hash
+                hex'7ac2e70fa31638e66d91c5343fa7a0f9c140a0b595ffdc5fdd856c5cb0ec6b24' // matic init code hash
 //                hex'd306a548755b9295ee49cc729e13ca4a45e00199bbd890fa146da43a50571776' // init code hash original
             ))));
     }
@@ -131,10 +132,11 @@ contract DXswapFeeReceiver {
             TransferHelper.safeTransfer(address(honeyToken), honeyReceiver, honeyEarned);
 
             uint256 honeyToConvertToHsf = honeyBalance.sub(honeyEarned);
-            uint256 hsfEarned = _swapTokens(honeyToConvertToHsf, address(honeyToken), hsfToken);
+            uint256 hsfEarned = _swapTokens(honeyToConvertToHsf, address(honeyToken), address(hsfToken));
             uint256 halfHsfEarned = hsfEarned / 2;
-            TransferHelper.safeTransfer(hsfToken, hsfReceiver, halfHsfEarned);
-            TransferHelper.safeTransfer(hsfToken, BURN_ADDRESS, halfHsfEarned);
+            TransferHelper.safeTransfer(address(hsfToken), BURN_ADDRESS, halfHsfEarned);
+            TransferHelper.safeTransfer(address(hsfToken), address(hsfReceiver), halfHsfEarned);
+            hsfReceiver.rebalance();
         }
     }
 }

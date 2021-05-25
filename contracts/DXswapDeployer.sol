@@ -3,6 +3,7 @@ pragma solidity =0.5.16;
 import './DXswapFactory.sol';
 import './interfaces/IDXswapPair.sol';
 import './interfaces/IERC20.sol';
+import './interfaces/IRewardManager.sol';
 import './DXswapFeeSetter.sol';
 import './DXswapFeeReceiver.sol';
 
@@ -12,9 +13,9 @@ contract DXswapDeployer {
     address payable public protocolFeeReceiver;
     address payable public owner;
     IERC20 public honeyToken;
-    address public hsfToken;
+    IERC20 public hsfToken;
     address public honeyReceiver;
-    address public hsfReceiver;
+    IRewardManager public hsfReceiver;
     uint256 public splitHoneyProportion;
     uint8 public state = 0;
 
@@ -38,9 +39,9 @@ contract DXswapDeployer {
         address[] memory tokensB,
         uint32[] memory swapFees,
         IERC20 _honeyToken,
-        address _hsfToken,
+        IERC20 _hsfToken,
         address _honeyReceiver,
-        address _hsfReceiver,
+        IRewardManager _hsfReceiver,
         uint256 _splitHoneyProportion
     ) public {
         owner = _owner;

@@ -94,7 +94,7 @@ describe('DXswapFeeReceiver', () => {
   }
 
   let factory: Contract, token0: Contract, token1: Contract, token2: Contract, honeyToken: Contract, hsfToken: Contract,
-    pair: Contract, hnyPairToken0: Contract, hnyPairToken1: Contract, hsfHnyPair: Contract,
+    hsfReceiver: Contract, pair: Contract, hnyPairToken0: Contract, hnyPairToken1: Contract, hsfHnyPair: Contract,
     missingHnyPairPair: Contract, feeSetter: Contract, feeReceiver: Contract
 
   beforeEach(async () => {
@@ -105,6 +105,7 @@ describe('DXswapFeeReceiver', () => {
     token2 = fixture.token2
     honeyToken = fixture.honeyToken
     hsfToken = fixture.hsfToken
+    hsfReceiver = fixture.hsfReceiver
     pair = fixture.pair
     hnyPairToken1 = fixture.hnyPairToken1
     hnyPairToken0 = fixture.hnyPairToken0
@@ -113,7 +114,7 @@ describe('DXswapFeeReceiver', () => {
     feeSetter = fixture.feeSetter
     feeReceiver = fixture.feeReceiver
 
-    console.log(await factory.INIT_CODE_PAIR_HASH())
+    console.log("Copy this to the fee receiver init code hash: ", await factory.INIT_CODE_PAIR_HASH())
   })
 
   it('should claim honey and hsf tokens from erc20-erc20 pair', async () => {
@@ -157,7 +158,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await pair.balanceOf(feeReceiver.address)).to.eq(0)
 
     expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(fractionalHnyEarned)
-    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(hsfReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
     expect((await hsfToken.balanceOf(BURN_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
@@ -203,7 +204,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await pair.balanceOf(feeReceiver.address)).to.eq(0)
 
     expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(fractionalHnyEarned)
-    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(hsfReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
     expect((await hsfToken.balanceOf(BURN_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 
@@ -254,7 +255,7 @@ describe('DXswapFeeReceiver', () => {
     expect(await token1.balanceOf(tokenAndContractOwner.address)).to.be.eq(0)
 
     expect((await honeyToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(honeyEarned)
-    expect((await hsfToken.balanceOf(convertedFeeReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
+    expect((await hsfToken.balanceOf(hsfReceiver.address))).to.be.eq(halfHsfFromHnyEarned)
     expect((await hsfToken.balanceOf(BURN_ADDRESS))).to.be.eq(halfHsfFromHnyEarned)
   })
 

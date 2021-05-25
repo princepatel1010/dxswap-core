@@ -11,6 +11,7 @@ import DXswapPair from '../../build/DXswapPair.json'
 import DXswapDeployer from '../../build/DXswapDeployer.json'
 import DXswapFeeSetter from '../../build/DXswapFeeSetter.json'
 import DXswapFeeReceiver from '../../build/DXswapFeeReceiver.json'
+import RewardManagerMock from '../../build/RewardManagerMock.json'
 
 interface FactoryFixture {
   factory: Contract
@@ -46,6 +47,7 @@ export async function factoryFixture(provider: Web3Provider, [dxdao, ethReceiver
 }
 
 interface PairFixture extends FactoryFixture {
+  hsfReceiver: Contract
   token0: Contract
   token1: Contract
   token2: Contract
@@ -56,12 +58,13 @@ interface PairFixture extends FactoryFixture {
   missingHnyPairPair: Contract
 }
 
-export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner, wallet, ethReceiver]: Wallet[]): Promise<PairFixture> {
+export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner, wallet, honeyReceiver]: Wallet[]): Promise<PairFixture> {
   const tokenA = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const tokenC = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const honeyToken = await deployContract(tokenAndContractOwner, ERC20, [expandTo18Decimals(10000)])
   const hsfToken = await deployContract(tokenAndContractOwner, ERC20, [expandTo18Decimals(10000)])
+  const hsfReceiver = await deployContract(tokenAndContractOwner, RewardManagerMock)
   const token0 = tokenA.address < tokenB.address ? tokenA : tokenB
   const token1 = token0.address === tokenA.address ? tokenB : tokenA
 
@@ -73,8 +76,8 @@ export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner
       [15, 15, 15, 15, 15, 15],
       honeyToken.address,
       hsfToken.address,
-      ethReceiver.address,
-      ethReceiver.address,
+      honeyReceiver.address,
+      hsfReceiver.address,
       expandToDecimals(5, 9)
     ], overrides
   )
@@ -111,6 +114,6 @@ export async function pairFixture(provider: Web3Provider, [tokenAndContractOwner
     JSON.stringify(DXswapPair.abi), provider
   ).connect(tokenAndContractOwner)
 
-  return { factory, feeSetter, feeReceiver, honeyToken, hsfToken, token0, token1, token2: tokenC, pair, hnyPairToken1,
+  return { factory, feeSetter, feeReceiver, honeyToken, hsfToken, hsfReceiver, token0, token1, token2: tokenC, pair, hnyPairToken1,
     hnyPairToken0, hsfHnyPair, missingHnyPairPair }
 }
